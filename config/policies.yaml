@@ -1,0 +1,268 @@
+# Cache policies configuration for dejafoo
+# Defines TTL, headers-to-vary, and body size cutoffs per endpoint
+
+# Default cache settings
+default_ttl: 3600  # 1 hour in seconds
+max_body_size: 10485760  # 10MB in bytes
+headers_to_vary:
+  - authorization
+  - x-api-key
+  - x-user-id
+  - x-tenant-id
+
+# Per-endpoint policies
+endpoint_policies:
+  # User management endpoints
+  "GET /api/users":
+    ttl: 300  # 5 minutes
+    max_body_size: 1048576  # 1MB
+    headers_to_vary:
+      - authorization
+      - x-user-id
+    cacheable: true
+    methods:
+      - GET
+
+  "GET /api/users/*":
+    ttl: 600  # 10 minutes
+    max_body_size: 1048576  # 1MB
+    headers_to_vary:
+      - authorization
+    cacheable: true
+    methods:
+      - GET
+
+  "POST /api/users":
+    ttl: 60  # 1 minute
+    cacheable: true
+    methods:
+      - POST
+
+  "PUT /api/users/*":
+    ttl: 60  # 1 minute
+    cacheable: true
+    methods:
+      - PUT
+
+  "DELETE /api/users/*":
+    ttl: 60  # 1 minute
+    cacheable: true
+    methods:
+      - DELETE
+
+  # Posts endpoints
+  "GET /api/posts":
+    ttl: 180  # 3 minutes
+    max_body_size: 2097152  # 2MB
+    headers_to_vary:
+      - authorization
+    cacheable: true
+    methods:
+      - GET
+
+  "GET /api/posts/*":
+    ttl: 600  # 10 minutes
+    max_body_size: 1048576  # 1MB
+    headers_to_vary:
+      - authorization
+    cacheable: true
+    methods:
+      - GET
+
+  "POST /api/posts":
+    ttl: 60  # 1 minute
+    cacheable: true
+    methods:
+      - POST
+
+  "PUT /api/posts/*":
+    ttl: 60  # 1 minute
+    cacheable: true
+    methods:
+      - PUT
+
+  "DELETE /api/posts/*":
+    ttl: 60  # 1 minute
+    cacheable: true
+    methods:
+      - DELETE
+
+  # Comments endpoints
+  "GET /api/comments":
+    ttl: 120  # 2 minutes
+    max_body_size: 1048576  # 1MB
+    headers_to_vary:
+      - authorization
+    cacheable: true
+    methods:
+      - GET
+
+  "GET /api/comments/*":
+    ttl: 300  # 5 minutes
+    max_body_size: 524288  # 512KB
+    headers_to_vary:
+      - authorization
+    cacheable: true
+    methods:
+      - GET
+
+  "POST /api/comments":
+    ttl: 60  # 1 minute
+    cacheable: true
+    methods:
+      - POST
+
+  "PUT /api/comments/*":
+    ttl: 60  # 1 minute
+    cacheable: true
+    methods:
+      - PUT
+
+  "DELETE /api/comments/*":
+    ttl: 60  # 1 minute
+    cacheable: true
+    methods:
+      - DELETE
+
+  # Search endpoints
+  "GET /api/search":
+    ttl: 60  # 1 minute
+    max_body_size: 2097152  # 2MB
+    headers_to_vary:
+      - authorization
+    cacheable: true
+    methods:
+      - GET
+
+  # Analytics endpoints
+  "GET /api/analytics/*":
+    ttl: 1800  # 30 minutes
+    max_body_size: 5242880  # 5MB
+    headers_to_vary:
+      - authorization
+      - x-tenant-id
+    cacheable: true
+    methods:
+      - GET
+
+  # Static content
+  "GET /static/*":
+    ttl: 86400  # 24 hours
+    max_body_size: 10485760  # 10MB
+    headers_to_vary: []
+    cacheable: true
+    methods:
+      - GET
+
+  # Health check endpoints
+  "GET /health":
+    ttl: 30  # 30 seconds
+    max_body_size: 1024  # 1KB
+    headers_to_vary: []
+    cacheable: true
+    methods:
+      - GET
+
+  "GET /health/*":
+    ttl: 30  # 30 seconds
+    max_body_size: 1024  # 1KB
+    headers_to_vary: []
+    cacheable: true
+    methods:
+      - GET
+
+  # JSONPlaceholder API endpoints
+  "GET /todos":
+    ttl: 300  # 5 minutes
+    max_body_size: 1048576  # 1MB
+    headers_to_vary: []
+    cacheable: true
+    methods:
+      - GET
+
+  "GET /todos/*":
+    ttl: 300  # 5 minutes
+    max_body_size: 1048576  # 1MB
+    headers_to_vary: []
+    cacheable: true
+    methods:
+      - GET
+
+  "GET /posts":
+    ttl: 300  # 5 minutes
+    max_body_size: 1048576  # 1MB
+    headers_to_vary: []
+    cacheable: true
+    methods:
+      - GET
+
+  "GET /posts/*":
+    ttl: 300  # 5 minutes
+    max_body_size: 1048576  # 1MB
+    headers_to_vary: []
+    cacheable: true
+    methods:
+      - GET
+
+  "GET /users":
+    ttl: 300  # 5 minutes
+    max_body_size: 1048576  # 1MB
+    headers_to_vary: []
+    cacheable: true
+    methods:
+      - GET
+
+  "GET /users/*":
+    ttl: 300  # 5 minutes
+    max_body_size: 1048576  # 1MB
+    headers_to_vary: []
+    cacheable: true
+    methods:
+      - GET
+
+  # Default policies for write operations
+  "POST *":
+    ttl: 60  # 1 minute
+    cacheable: true
+    methods:
+      - POST
+
+  "PUT *":
+    ttl: 60  # 1 minute
+    cacheable: true
+    methods:
+      - PUT
+
+  "PATCH *":
+    ttl: 60  # 1 minute
+    cacheable: true
+    methods:
+      - PATCH
+
+  "DELETE *":
+    ttl: 60  # 1 minute
+    cacheable: true
+    methods:
+      - DELETE
+
+# Special headers that should never be cached
+never_cache_headers:
+  - set-cookie
+  - authorization
+  - x-csrf-token
+  - x-session-id
+
+# Headers that indicate no-cache
+no_cache_headers:
+  - cache-control
+  - pragma
+
+# Status codes that should not be cached
+no_cache_status_codes:
+  - 401  # Unauthorized
+  - 403  # Forbidden
+  - 404  # Not Found
+  - 500  # Internal Server Error
+  - 502  # Bad Gateway
+  - 503  # Service Unavailable
+  - 504  # Gateway Timeout

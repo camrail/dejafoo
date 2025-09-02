@@ -1,0 +1,175 @@
+# Test configuration for dejafoo
+# Defines test scenarios and expected behaviors
+
+# Test endpoints for load testing
+test_endpoints:
+  - path: "/todos/1"
+    method: "GET"
+    expected_status: 200
+    cacheable: true
+    ttl: 300
+    description: "Single todo item"
+  
+  - path: "/todos"
+    method: "GET"
+    expected_status: 200
+    cacheable: true
+    ttl: 600
+    description: "All todos list"
+  
+  - path: "/posts/1"
+    method: "GET"
+    expected_status: 200
+    cacheable: true
+    ttl: 300
+    description: "Single post"
+  
+  - path: "/users/1"
+    method: "GET"
+    expected_status: 200
+    cacheable: true
+    ttl: 600
+    description: "Single user"
+  
+  - path: "/todos"
+    method: "POST"
+    expected_status: 201
+    cacheable: false
+    description: "Create new todo"
+  
+  - path: "/todos/999"
+    method: "GET"
+    expected_status: 404
+    cacheable: false
+    description: "Non-existent todo"
+
+# Load test scenarios
+load_test_scenarios:
+  - name: "basic_concurrent"
+    concurrent_requests: 10
+    total_requests: 100
+    test_type: "concurrent"
+  
+  - name: "cache_performance"
+    concurrent_requests: 5
+    total_requests: 50
+    test_type: "cache"
+    cache_ratio: 0.7
+  
+  - name: "throughput_test"
+    concurrent_requests: 20
+    duration_seconds: 60
+    test_type: "throughput"
+
+# Performance expectations
+performance_expectations:
+  cache_hit_rate:
+    min: 0.6  # 60% minimum cache hit rate
+    target: 0.8  # 80% target cache hit rate
+  
+  response_time:
+    cache_hit_max_ms: 50  # 50ms max for cache hits
+    cache_miss_max_ms: 500  # 500ms max for cache misses
+  
+  throughput:
+    min_requests_per_second: 100
+    target_requests_per_second: 500
+
+# Test data
+test_data:
+  users:
+    - id: 1
+      name: "John Doe"
+      email: "john@example.com"
+    - id: 2
+      name: "Jane Smith"
+      email: "jane@example.com"
+  
+  posts:
+    - id: 1
+      title: "Test Post 1"
+      content: "This is a test post"
+      author_id: 1
+    - id: 2
+      title: "Test Post 2"
+      content: "This is another test post"
+      author_id: 2
+
+# Mock responses for testing (based on JSONPlaceholder API)
+mock_responses:
+  "/todos/1":
+    status: 200
+    headers:
+      content-type: "application/json"
+      cache-control: "public, max-age=300"
+    body: |
+      {
+        "userId": 1,
+        "id": 1,
+        "title": "delectus aut autem",
+        "completed": false
+      }
+  
+  "/todos":
+    status: 200
+    headers:
+      content-type: "application/json"
+      cache-control: "public, max-age=600"
+    body: |
+      [
+        {
+          "userId": 1,
+          "id": 1,
+          "title": "delectus aut autem",
+          "completed": false
+        },
+        {
+          "userId": 1,
+          "id": 2,
+          "title": "quis ut nam facilis et officia qui",
+          "completed": false
+        }
+      ]
+  
+  "/posts/1":
+    status: 200
+    headers:
+      content-type: "application/json"
+      cache-control: "public, max-age=300"
+    body: |
+      {
+        "userId": 1,
+        "id": 1,
+        "title": "sunt aut facere repellat provident occaecati excepturi optio reprehenderit",
+        "body": "quia et suscipit\nsuscipit recusandae consequuntur expedita et cum\nreprehenderit molestiae ut ut quas totam\nnostrum rerum est autem sunt rem eveniet architecto"
+      }
+  
+  "/users/1":
+    status: 200
+    headers:
+      content-type: "application/json"
+      cache-control: "public, max-age=600"
+    body: |
+      {
+        "id": 1,
+        "name": "Leanne Graham",
+        "username": "Bret",
+        "email": "Sincere@april.biz",
+        "address": {
+          "street": "Kulas Light",
+          "suite": "Apt. 556",
+          "city": "Gwenborough",
+          "zipcode": "92998-3874",
+          "geo": {
+            "lat": "-37.3159",
+            "lng": "81.1496"
+          }
+        },
+        "phone": "1-770-736-8031 x56442",
+        "website": "hildegard.org",
+        "company": {
+          "name": "Romaguera-Crona",
+          "catchPhrase": "Multi-layered client-server neural-net",
+          "bs": "harness real-time e-markets"
+        }
+      }
