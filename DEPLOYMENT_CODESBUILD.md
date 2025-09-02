@@ -3,6 +3,8 @@
 ## Overview
 Deploy your private dejafoo repository using AWS CodeBuild with automated builds, secrets management, and infrastructure as code.
 
+**🔐 AWS Secrets Manager Only:** No local credential files needed - everything is stored securely in AWS Secrets Manager.
+
 ## Architecture
 ```
 Private GitHub Repo → CodeBuild → Secrets Manager → Terraform → AWS Resources
@@ -26,12 +28,8 @@ Private GitHub Repo → CodeBuild → Secrets Manager → Terraform → AWS Reso
 git clone https://github.com/yourusername/dejafoo.git
 cd dejafoo
 
-# Create environment file with your GitHub repo URL
-cp env.example .env
-# Edit .env with your private repo URL and other values
-
-# Run setup script
-./scripts/setup-infrastructure.sh
+# Run setup script with your parameters
+./scripts/setup-infrastructure.sh my-dejafoo prod us-west-2 https://github.com/myorg/dejafoo.git
 ```
 
 ### Option B: Manual Terraform
@@ -42,9 +40,9 @@ terraform plan -var="github_repo_url=https://github.com/yourusername/dejafoo.git
 terraform apply
 ```
 
-## Step 2: Configure Secrets
+## Step 2: Configure Secrets in AWS Secrets Manager
 
-After infrastructure is created, you'll get a Secrets Manager secret name. Update it with your credentials:
+After infrastructure is created, you'll get a Secrets Manager secret name. This is where ALL your credentials are stored - no local files needed!
 
 ### Via AWS Console:
 1. Go to **AWS Secrets Manager**
@@ -153,11 +151,11 @@ The build process uses these environment variables:
 
 ## Security Features
 
-✅ **Secrets in AWS Secrets Manager** - No credentials in code
+✅ **AWS Secrets Manager Only** - No local files, no .env files, no credentials in code
 ✅ **IAM Roles** - Least privilege access
 ✅ **Encrypted Secrets** - KMS encryption at rest
 ✅ **Secure Build Environment** - Isolated CodeBuild containers
-✅ **No Local Credentials** - Everything runs in AWS
+✅ **Zero Local Credentials** - Everything runs in AWS, everything stored in Secrets Manager
 
 ## Troubleshooting
 

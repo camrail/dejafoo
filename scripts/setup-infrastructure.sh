@@ -11,17 +11,14 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Load environment variables from .env file if it exists
-if [ -f .env ]; then
-    echo "📄 Loading environment variables from .env file"
-    export $(grep -v '^#' .env | xargs)
-fi
+# Configuration - can be overridden by environment variables or command line args
+PROJECT_NAME=${1:-dejafoo}
+ENVIRONMENT=${2:-dev}
+AWS_REGION=${3:-us-east-1}
+GITHUB_REPO_URL=${4:-"https://github.com/yourusername/dejafoo.git"}
 
-# Configuration - can be overridden by environment variables
-PROJECT_NAME=${DEJAFOO_PROJECT_NAME:-dejafoo}
-ENVIRONMENT=${DEJAFOO_ENVIRONMENT:-dev}
-AWS_REGION=${AWS_DEFAULT_REGION:-us-east-1}
-GITHUB_REPO_URL=${GITHUB_REPO_URL:-"https://github.com/yourusername/dejafoo.git"}
+echo "Usage: $0 [project_name] [environment] [aws_region] [github_repo_url]"
+echo "Example: $0 my-dejafoo prod us-west-2 https://github.com/myorg/dejafoo.git"
 
 echo -e "${GREEN}🚀 Setting up dejafoo infrastructure${NC}"
 echo "Project: $PROJECT_NAME"
