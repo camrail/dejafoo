@@ -322,7 +322,7 @@ impl CacheStore {
     /// File-based cache methods for local testing
     async fn get_from_file(&self, cache_key: &CacheKey) -> AppResult<Option<Value>> {
         let key_hash = cache_key.to_string();
-        let cache_dir = "cache";
+        let cache_dir = ".dev-cache";
         let file_path = format!("{}/{}.json", cache_dir, key_hash);
         
         // Create cache directory if it doesn't exist
@@ -366,7 +366,7 @@ impl CacheStore {
     
     async fn set_to_file_with_ttl(&self, cache_key: &CacheKey, response: &Value, custom_ttl_seconds: Option<u64>) -> AppResult<()> {
         let key_hash = cache_key.to_string();
-        let cache_dir = "cache";
+        let cache_dir = ".dev-cache";
         let file_path = format!("{}/{}.json", cache_dir, key_hash);
         
         // Create cache directory if it doesn't exist
