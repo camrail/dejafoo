@@ -35,9 +35,21 @@ impl CacheKey {
         body: &str,
         subdomain: Option<&str>,
     ) -> Result<Self, AppError> {
+        Self::new_with_subdomain_and_ttl(method, path, headers, body, subdomain, None)
+    }
+    
+    /// Generate a cache key from request components with subdomain and TTL
+    pub fn new_with_subdomain_and_ttl(
+        method: &str,
+        path: &str,
+        headers: &HashMap<String, String>,
+        body: &str,
+        subdomain: Option<&str>,
+        ttl_seconds: Option<u64>,
+    ) -> Result<Self, AppError> {
         let normalized_headers = Self::normalize_headers(headers);
         let body_hash = Self::hash_body(body);
-        let key_hash = Self::generate_key_hash(method, path, &normalized_headers, &body_hash, subdomain);
+        let key_hash = Self::generate_key_hash(method, path, &normalized_headers, &body_hash, subdomain, ttl_seconds);
         
         Ok(CacheKey {
             method: method.to_uppercase(),
@@ -124,6 +136,7 @@ impl CacheKey {
         headers: &HashMap<String, String>,
         body_hash: &str,
         subdomain: Option<&str>,
+        ttl_seconds: Option<u64>,
     ) -> String {
         let mut hasher = Sha256::new();
         
@@ -154,6 +167,12 @@ impl CacheKey {
         
         // Add body hash
         hasher.update(body_hash.as_bytes());
+        hasher.update(b"\0");
+        
+        // Add TTL (if present) to separate cache entries by TTL
+        if let Some(ttl) = ttl_seconds {
+            hasher.update(ttl.to_string().as_bytes());
+        }
         
         format!("{:x}", hasher.finalize())
     }

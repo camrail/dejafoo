@@ -86,6 +86,19 @@ impl CacheStore {
         CacheKey::new_with_subdomain(method, path, headers, body, subdomain)
     }
     
+    /// Generate a cache key from request components with subdomain and TTL
+    pub fn generate_key_with_subdomain_and_ttl(
+        &self,
+        method: &str,
+        path: &str,
+        headers: &HashMap<String, String>,
+        body: &str,
+        subdomain: Option<&str>,
+        ttl_seconds: Option<u64>,
+    ) -> AppResult<CacheKey> {
+        CacheKey::new_with_subdomain_and_ttl(method, path, headers, body, subdomain, ttl_seconds)
+    }
+    
     /// Get a cached response
     pub async fn get(&self, cache_key: &CacheKey) -> AppResult<Option<Value>> {
         // For file-based cache store, read from local files
@@ -147,9 +160,13 @@ impl CacheStore {
     
     /// Set a cached response
     pub async fn set(&self, cache_key: &CacheKey, response: &Value) -> AppResult<()> {
+        self.set_with_ttl(cache_key, response, None).await
+    }
+    
+    pub async fn set_with_ttl(&self, cache_key: &CacheKey, response: &Value, ttl_seconds: Option<u64>) -> AppResult<()> {
         // For file-based cache store, write to local files
         if self.table_name == "file-cache" {
-            return self.set_to_file(cache_key, response).await;
+            return self.set_to_file_with_ttl(cache_key, response, ttl_seconds).await;
         }
         
         let key_hash = cache_key.to_string();
@@ -346,6 +363,10 @@ impl CacheStore {
     }
     
     async fn set_to_file(&self, cache_key: &CacheKey, response: &Value) -> AppResult<()> {
+        self.set_to_file_with_ttl(cache_key, response, None).await
+    }
+    
+    async fn set_to_file_with_ttl(&self, cache_key: &CacheKey, response: &Value, custom_ttl_seconds: Option<u64>) -> AppResult<()> {
         let key_hash = cache_key.to_string();
         let cache_dir = "cache";
         let file_path = format!("{}/{}.json", cache_dir, key_hash);
@@ -356,8 +377,9 @@ impl CacheStore {
                 .map_err(|e| AppError::Cache(format!("Failed to create cache directory: {}", e)))?;
         }
         
-        // Calculate TTL (default 1 hour)
-        let ttl = Utc::now() + Duration::hours(1);
+        // Calculate TTL (use custom TTL or default 1 hour)
+        let ttl_seconds = custom_ttl_seconds.unwrap_or(3600); // 1 hour default
+        let ttl = Utc::now() + Duration::seconds(ttl_seconds as i64);
         let ttl_timestamp = ttl.timestamp();
         
         // Create cache data
@@ -365,6 +387,7 @@ impl CacheStore {
             "key": key_hash,
             "response": response,
             "ttl": ttl_timestamp,
+            "ttl_seconds": ttl_seconds,
             "created_at": Utc::now().to_rfc3339()
         });
         
@@ -375,7 +398,7 @@ impl CacheStore {
         std::fs::write(&file_path, content)
             .map_err(|e| AppError::Cache(format!("Failed to write cache file: {}", e)))?;
         
-        log::info!("File cache stored for key: {}", key_hash);
+        log::info!("File cache stored for key: {} with TTL: {}s", key_hash, ttl_seconds);
         Ok(())
     }
 }
