@@ -1,33 +1,34 @@
-# 🚀 CodeBuild Deployment Guide
+# 🚀 Private Repository Deployment Guide
 
 ## Overview
-Deploy dejafoo using AWS CodeBuild with automated builds, secrets management, and infrastructure as code.
+Deploy your private dejafoo repository using AWS CodeBuild with automated builds, secrets management, and infrastructure as code.
 
 ## Architecture
 ```
-GitHub Repo → CodeBuild → Secrets Manager → Terraform → AWS Resources
-     ↓              ↓            ↓              ↓
-  Push Code    Build & Deploy   Credentials   Lambda + DynamoDB + S3
+Private GitHub Repo → CodeBuild → Secrets Manager → Terraform → AWS Resources
+         ↓              ↓            ↓              ↓
+    Push Code    Build & Deploy   Credentials   Lambda + DynamoDB + S3
 ```
 
 ## Prerequisites
 
 1. **AWS Account** with appropriate permissions
-2. **GitHub Repository** with your dejafoo code
-3. **AWS CLI** installed and configured
-4. **Terraform** installed
+2. **Private GitHub Repository** with your dejafoo code
+3. **GitHub Personal Access Token** with repo access
+4. **AWS CLI** installed and configured
+5. **Terraform** installed
 
 ## Step 1: Initial Infrastructure Setup
 
 ### Option A: Using the Setup Script
 ```bash
-# Clone your repo
+# Clone your private repo
 git clone https://github.com/yourusername/dejafoo.git
 cd dejafoo
 
-# Create environment file (optional)
-cp .env.example .env
-# Edit .env with your values if needed
+# Create environment file with your GitHub repo URL
+cp env.example .env
+# Edit .env with your private repo URL and other values
 
 # Run setup script
 ./scripts/setup-infrastructure.sh
@@ -58,6 +59,10 @@ After infrastructure is created, you'll get a Secrets Manager secret name. Updat
   "aws_secret_access_key": "your_secret_key"
 }
 ```
+
+**Important for Private Repos:** Your GitHub token needs these permissions:
+- `repo` (Full control of private repositories)
+- `read:org` (if your repo is in an organization)
 
 ### Via AWS CLI:
 ```bash
