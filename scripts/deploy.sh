@@ -3,16 +3,22 @@
 # Deploy script for dejafoo Lambda function
 set -e
 
+# Load environment variables from .env file if it exists
+if [ -f .env ]; then
+    echo "📄 Loading environment variables from .env file"
+    export $(grep -v '^#' .env | xargs)
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Configuration
-PROJECT_NAME="dejafoo"
-ENVIRONMENT=${1:-dev}
-AWS_REGION=${2:-us-east-1}
+# Configuration - can be overridden by environment variables
+PROJECT_NAME=${DEJAFOO_PROJECT_NAME:-dejafoo}
+ENVIRONMENT=${DEJAFOO_ENVIRONMENT:-${1:-dev}}
+AWS_REGION=${AWS_DEFAULT_REGION:-${2:-us-east-1}}
 LAMBDA_ZIP="lambda-deployment.zip"
 
 echo -e "${GREEN}🚀 Deploying dejafoo to AWS Lambda${NC}"
