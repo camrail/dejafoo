@@ -362,9 +362,7 @@ impl CacheStore {
         Ok(cache_data.get("response").cloned())
     }
     
-    async fn set_to_file(&self, cache_key: &CacheKey, response: &Value) -> AppResult<()> {
-        self.set_to_file_with_ttl(cache_key, response, None).await
-    }
+
     
     async fn set_to_file_with_ttl(&self, cache_key: &CacheKey, response: &Value, custom_ttl_seconds: Option<u64>) -> AppResult<()> {
         let key_hash = cache_key.to_string();

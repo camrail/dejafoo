@@ -10,7 +10,6 @@ use crate::utils::{AppError, AppResult};
 
 pub struct UpstreamFetcher {
     client: Client,
-    timeout: std::time::Duration,
 }
 
 impl UpstreamFetcher {
@@ -24,7 +23,6 @@ impl UpstreamFetcher {
         
         Self {
             client,
-            timeout: std::time::Duration::from_secs(30),
         }
     }
     
@@ -38,7 +36,6 @@ impl UpstreamFetcher {
         
         Self {
             client,
-            timeout,
         }
     }
 }

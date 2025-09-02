@@ -53,7 +53,7 @@ async fn main() -> AppResult<()> {
 
 async fn handle_connection(
     mut stream: tokio::net::TcpStream,
-    client_addr: std::net::SocketAddr,
+    _client_addr: std::net::SocketAddr,
     cache_store: CacheStore,
     cache_policy: CachePolicy,
 ) -> AppResult<()> {
