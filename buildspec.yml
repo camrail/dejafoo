@@ -1,0 +1,55 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo "🔐 Retrieving secrets from AWS Secrets Manager..."
+      - SECRETS=$(aws secretsmanager get-secret-value --secret-id $SECRETS_MANAGER_SECRET_NAME --query SecretString --output text)
+      - export GITHUB_TOKEN=$(echo $SECRETS | jq -r '.github_token')
+      - export AWS_ACCESS_KEY_ID=$(echo $SECRETS | jq -r '.aws_access_key_id')
+      - export AWS_SECRET_ACCESS_KEY=$(echo $SECRETS | jq -r '.aws_secret_access_key')
+      - echo "🔧 Installing Rust..."
+      - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - source ~/.cargo/env
+      - rustup target add x86_64-unknown-linux-gnu
+      - echo "📦 Installing cross-compilation dependencies..."
+      - yum update -y
+      - yum install -y gcc gcc-c++ make jq
+      
+  build:
+    commands:
+      - echo "🔨 Building Rust binary for Lambda..."
+      - source ~/.cargo/env
+      - cargo build --release --target x86_64-unknown-linux-gnu
+      - echo "📦 Creating Lambda deployment package..."
+      - cp target/x86_64-unknown-linux-gnu/release/dejafoo-proxy bootstrap
+      - zip dejafoo-lambda.zip bootstrap
+      - rm bootstrap
+      - echo "✅ Build completed successfully"
+
+  post_build:
+    commands:
+      - echo "🚀 Deploying infrastructure with Terraform..."
+      - cd infra
+      - terraform init
+      - terraform plan
+      - terraform apply -auto-approve
+      - echo "📋 Getting deployment outputs..."
+      - terraform output -json > deployment-outputs.json
+      - echo "✅ Deployment completed successfully"
+
+artifacts:
+  files:
+    - dejafoo-lambda.zip
+    - infra/deployment-outputs.json
+  name: dejafoo-deployment-$(date +%Y-%m-%d-%H-%M-%S)
+
+cache:
+  paths:
+    - ~/.cargo/registry/**
+    - ~/.cargo/git/**
+    - target/**
+
+env:
+  variables:
+    RUST_BACKTRACE: 1

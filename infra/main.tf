@@ -36,6 +36,18 @@ variable "lambda_zip_path" {
   default     = "lambda-deployment.zip"
 }
 
+variable "github_repo_url" {
+  description = "GitHub repository URL for CodeBuild"
+  type        = string
+  default     = "https://github.com/yourusername/dejafoo.git"
+}
+
+variable "branch_name" {
+  description = "GitHub branch to build from"
+  type        = string
+  default     = "main"
+}
+
 # Data sources
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
@@ -79,6 +91,17 @@ module "lambda" {
   lambda_zip_path     = var.lambda_zip_path
 }
 
+module "codebuild" {
+  source = "./modules/codebuild"
+  
+  project_name     = local.project_name
+  environment      = var.environment
+  aws_region       = var.aws_region
+  github_repo_url  = var.github_repo_url
+  branch_name      = var.branch_name
+  tags            = local.common_tags
+}
+
 # Outputs
 output "dynamodb_table_name" {
   description = "Name of the DynamoDB table"
@@ -98,4 +121,14 @@ output "lambda_function_url" {
 output "lambda_function_name" {
   description = "Lambda function name"
   value       = module.lambda.function_name
+}
+
+output "codebuild_project_name" {
+  description = "CodeBuild project name"
+  value       = module.codebuild.codebuild_project_name
+}
+
+output "secrets_manager_secret_name" {
+  description = "Secrets Manager secret name"
+  value       = module.codebuild.secrets_manager_secret_name
 }
