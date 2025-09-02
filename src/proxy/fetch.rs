@@ -45,7 +45,8 @@ impl UpstreamFetcher {
 
 /// Forward a request to the upstream service
 pub async fn fetch_upstream(request: &Value) -> AppResult<Value> {
-    let fetcher = UpstreamFetcher::new();
+    // Use a 30-second timeout for upstream requests
+    let fetcher = UpstreamFetcher::with_timeout(std::time::Duration::from_secs(30));
     fetcher.fetch(request).await
 }
 
@@ -127,17 +128,27 @@ fn extract_headers(request: &Value) -> AppResult<HashMap<String, String>> {
 
 /// Build upstream URL from path and headers
 fn build_upstream_url(path: &str, headers: &HashMap<String, String>) -> AppResult<String> {
+    log::debug!("Building upstream URL for path: {}", path);
+    
     // Check if path contains a ?url= parameter (managed service mode)
     if let Some(query_start) = path.find('?') {
         let query_string = &path[query_start + 1..];
+        log::debug!("Found query string: {}", query_string);
+        
         if let Some(url_param) = extract_url_parameter(query_string) {
+            log::debug!("Extracted URL parameter: {}", url_param);
             // Validate the URL parameter
             if url_param.starts_with("http://") || url_param.starts_with("https://") {
+                log::debug!("Using URL parameter as upstream: {}", url_param);
                 return Ok(url_param);
             } else {
                 return Err(AppError::Proxy("URL parameter must start with http:// or https://".to_string()));
             }
+        } else {
+            log::debug!("No URL parameter found in query string");
         }
+    } else {
+        log::debug!("No query string found in path");
     }
     
     // Fallback to environment variable or header (legacy mode)

@@ -61,11 +61,20 @@ async fn handle_connection(
     let n = stream.read(&mut buffer).await?;
     
     if n == 0 {
+        log::debug!("Empty request received");
         return Ok(());
     }
     
     let request_str = String::from_utf8_lossy(&buffer[..n]);
-    let request = parse_http_request(&request_str)?;
+    log::debug!("Received request: {}", request_str);
+    
+    let request = parse_http_request(&request_str)
+        .map_err(|e| {
+            log::error!("Failed to parse HTTP request: {}", e);
+            e
+        })?;
+    
+    log::debug!("Parsed request: {} {}", request.method, request.path);
     
     let start_time = std::time::Instant::now();
     let response = process_request(request, &cache_store, &cache_policy).await?;
@@ -255,6 +264,8 @@ async fn process_request(
     let ttl_seconds = extract_ttl_from_path(&request.path);
     if let Some(ttl) = ttl_seconds {
         log::info!("Custom TTL requested: {} seconds", ttl);
+    } else {
+        log::debug!("No custom TTL specified, using default");
     }
     
     // Generate cache key with subdomain and TTL
@@ -283,7 +294,14 @@ async fn process_request(
     // Cache miss - fetch from upstream
     log::info!("Cache miss for key: {}", cache_key.to_string());
     
-    let upstream_response = fetch_upstream(&normalized_request).await?;
+    log::debug!("Fetching from upstream...");
+    let upstream_response = fetch_upstream(&normalized_request).await
+        .map_err(|e| {
+            log::error!("Upstream fetch failed: {}", e);
+            e
+        })?;
+    log::debug!("Upstream response received");
+    
     let normalized_response = normalize_response(upstream_response)?;
     
     // Store in cache if policy allows
