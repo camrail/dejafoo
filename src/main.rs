@@ -61,20 +61,11 @@ async fn handle_connection(
     let n = stream.read(&mut buffer).await?;
     
     if n == 0 {
-        log::debug!("Empty request received");
         return Ok(());
     }
     
     let request_str = String::from_utf8_lossy(&buffer[..n]);
-    log::debug!("Received request: {}", request_str);
-    
-    let request = parse_http_request(&request_str)
-        .map_err(|e| {
-            log::error!("Failed to parse HTTP request: {}", e);
-            e
-        })?;
-    
-    log::debug!("Parsed request: {} {}", request.method, request.path);
+    let request = parse_http_request(&request_str)?;
     
     let start_time = std::time::Instant::now();
     let response = process_request(request, &cache_store, &cache_policy).await?;
@@ -122,64 +113,6 @@ fn extract_subdomain(headers: &HashMap<String, String>) -> Option<String> {
         }
     }
     None
-}
-
-/// Extract TTL parameter from query string
-fn extract_ttl_from_path(path: &str) -> Option<u64> {
-    if let Some(query_start) = path.find('?') {
-        let query_string = &path[query_start + 1..];
-        for param in query_string.split('&') {
-            if let Some((key, value)) = param.split_once('=') {
-                if key == "ttl" {
-                    // Parse TTL string (7d, 30m, 60s, etc.)
-                    return parse_ttl_string(value).ok();
-                }
-            }
-        }
-    }
-    None
-}
-
-/// Parse human-readable TTL string to seconds
-fn parse_ttl_string(ttl_str: &str) -> Result<u64, String> {
-    if ttl_str.is_empty() {
-        return Err("TTL cannot be empty".to_string());
-    }
-    
-    let ttl_str = ttl_str.trim().to_lowercase();
-    let (number_part, unit_part) = if ttl_str.ends_with('d') {
-        (&ttl_str[..ttl_str.len()-1], "d")
-    } else if ttl_str.ends_with('h') {
-        (&ttl_str[..ttl_str.len()-1], "h")
-    } else if ttl_str.ends_with('m') {
-        (&ttl_str[..ttl_str.len()-1], "m")
-    } else if ttl_str.ends_with('s') {
-        (&ttl_str[..ttl_str.len()-1], "s")
-    } else {
-        // Default to seconds if no unit specified
-        (ttl_str.as_str(), "s")
-    };
-    
-    let number: u64 = number_part.parse()
-        .map_err(|_| format!("Invalid TTL number: {}", number_part))?;
-    
-    let seconds = match unit_part {
-        "s" => number,
-        "m" => number * 60,
-        "h" => number * 60 * 60,
-        "d" => number * 60 * 60 * 24,
-        _ => return Err(format!("Invalid TTL unit: {}", unit_part)),
-    };
-    
-    // Validate reasonable limits (1 second to 1 year)
-    if seconds < 1 {
-        return Err("TTL must be at least 1 second".to_string());
-    }
-    if seconds > 365 * 24 * 60 * 60 {
-        return Err("TTL cannot exceed 1 year".to_string());
-    }
-    
-    Ok(seconds)
 }
 
 fn parse_http_request(request_str: &str) -> AppResult<HttpRequest> {
@@ -260,31 +193,33 @@ async fn process_request(
         log::info!("Detected subdomain: {}", subdomain);
     }
     
-    // Extract TTL from query parameters
-    let ttl_seconds = extract_ttl_from_path(&request.path);
-    if let Some(ttl) = ttl_seconds {
-        log::info!("Custom TTL requested: {} seconds", ttl);
-    } else {
-        log::debug!("No custom TTL specified, using default");
-    }
-    
-    // Generate cache key with subdomain and TTL
-    let cache_key = cache_store.generate_key_with_subdomain_and_ttl(
+    // Generate cache key with subdomain
+    let cache_key = cache_store.generate_key_with_subdomain(
         &request.method,
         &request.path,
         &request.headers,
         &request.body,
         subdomain.as_deref(),
-        ttl_seconds,
     )?;
     
     // Check cache first
     if let Some(cached_response) = cache_store.get(&cache_key).await? {
         log::info!("Cache hit for key: {}", cache_key.to_string());
+        
+        // Extract the response body from the cached response
+        log::debug!("Cached response structure: {}", cached_response);
+        let response_body = if let Some(body) = cached_response.get("body") {
+            log::debug!("Found body: {}", body);
+            serde_json::to_string(body).unwrap_or_else(|_| "{}".to_string())
+        } else {
+            log::debug!("No body found in cached response");
+            "{}".to_string()
+        };
+        
         return Ok(HttpResponse {
             status_code: 200,
             headers: HashMap::new(),
-            body: cached_response.to_string(),
+            body: response_body,
             method: request.method,
             path: request.path,
             upstream_url: "cache".to_string(),
@@ -294,20 +229,13 @@ async fn process_request(
     // Cache miss - fetch from upstream
     log::info!("Cache miss for key: {}", cache_key.to_string());
     
-    log::debug!("Fetching from upstream...");
-    let upstream_response = fetch_upstream(&normalized_request).await
-        .map_err(|e| {
-            log::error!("Upstream fetch failed: {}", e);
-            e
-        })?;
-    log::debug!("Upstream response received");
-    
+    let upstream_response = fetch_upstream(&normalized_request).await?;
     let normalized_response = normalize_response(upstream_response)?;
     
     // Store in cache if policy allows
     if cache_policy.should_cache(&normalized_response) {
-        cache_store.set_with_ttl(&cache_key, &normalized_response, ttl_seconds).await?;
-        log::info!("Response cached with key: {} and TTL: {:?}", cache_key.to_string(), ttl_seconds);
+        cache_store.set(&cache_key, &normalized_response).await?;
+        log::info!("Response cached with key: {}", cache_key.to_string());
     }
     
     // Extract response details

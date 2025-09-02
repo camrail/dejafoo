@@ -45,8 +45,7 @@ impl UpstreamFetcher {
 
 /// Forward a request to the upstream service
 pub async fn fetch_upstream(request: &Value) -> AppResult<Value> {
-    // Use a 30-second timeout for upstream requests
-    let fetcher = UpstreamFetcher::with_timeout(std::time::Duration::from_secs(30));
+    let fetcher = UpstreamFetcher::new();
     fetcher.fetch(request).await
 }
 
@@ -128,33 +127,10 @@ fn extract_headers(request: &Value) -> AppResult<HashMap<String, String>> {
 
 /// Build upstream URL from path and headers
 fn build_upstream_url(path: &str, headers: &HashMap<String, String>) -> AppResult<String> {
-    log::debug!("Building upstream URL for path: {}", path);
-    
-    // Check if path contains a ?url= parameter (managed service mode)
-    if let Some(query_start) = path.find('?') {
-        let query_string = &path[query_start + 1..];
-        log::debug!("Found query string: {}", query_string);
-        
-        if let Some(url_param) = extract_url_parameter(query_string) {
-            log::debug!("Extracted URL parameter: {}", url_param);
-            // Validate the URL parameter
-            if url_param.starts_with("http://") || url_param.starts_with("https://") {
-                log::debug!("Using URL parameter as upstream: {}", url_param);
-                return Ok(url_param);
-            } else {
-                return Err(AppError::Proxy("URL parameter must start with http:// or https://".to_string()));
-            }
-        } else {
-            log::debug!("No URL parameter found in query string");
-        }
-    } else {
-        log::debug!("No query string found in path");
-    }
-    
-    // Fallback to environment variable or header (legacy mode)
+    // Get upstream base URL from environment or headers
     let base_url = std::env::var("UPSTREAM_BASE_URL")
         .or_else(|_| headers.get("x-upstream-url").cloned().ok_or(()))
-        .map_err(|_| AppError::Proxy("No upstream URL configured. Use ?url=https://example.com or set UPSTREAM_BASE_URL".to_string()))?;
+        .map_err(|_| AppError::Proxy("No upstream URL configured".to_string()))?;
     
     // Parse base URL
     let base_url = Url::parse(&base_url)
@@ -165,73 +141,6 @@ fn build_upstream_url(path: &str, headers: &HashMap<String, String>) -> AppResul
         .map_err(|e| AppError::Proxy(format!("Invalid path: {}", e)))?;
     
     Ok(full_url.to_string())
-}
-
-/// Extract URL parameter from query string
-fn extract_url_parameter(query_string: &str) -> Option<String> {
-    for param in query_string.split('&') {
-        if let Some((key, value)) = param.split_once('=') {
-            if key == "url" {
-                return Some(value.to_string());
-            }
-        }
-    }
-    None
-}
-
-/// Extract TTL parameter from query string
-fn extract_ttl_parameter(query_string: &str) -> Option<String> {
-    for param in query_string.split('&') {
-        if let Some((key, value)) = param.split_once('=') {
-            if key == "ttl" {
-                return Some(value.to_string());
-            }
-        }
-    }
-    None
-}
-
-/// Parse human-readable TTL string to seconds
-/// Supports: 7d (days), 30m (minutes), 60s (seconds), 2h (hours)
-fn parse_ttl_string(ttl_str: &str) -> Result<u64, AppError> {
-    if ttl_str.is_empty() {
-        return Err(AppError::Proxy("TTL cannot be empty".to_string()));
-    }
-    
-    let ttl_str = ttl_str.trim().to_lowercase();
-    let (number_part, unit_part) = if ttl_str.ends_with('d') {
-        (&ttl_str[..ttl_str.len()-1], "d")
-    } else if ttl_str.ends_with('h') {
-        (&ttl_str[..ttl_str.len()-1], "h")
-    } else if ttl_str.ends_with('m') {
-        (&ttl_str[..ttl_str.len()-1], "m")
-    } else if ttl_str.ends_with('s') {
-        (&ttl_str[..ttl_str.len()-1], "s")
-    } else {
-        // Default to seconds if no unit specified
-        (ttl_str.as_str(), "s")
-    };
-    
-    let number: u64 = number_part.parse()
-        .map_err(|_| AppError::Proxy(format!("Invalid TTL number: {}", number_part)))?;
-    
-    let seconds = match unit_part {
-        "s" => number,
-        "m" => number * 60,
-        "h" => number * 60 * 60,
-        "d" => number * 60 * 60 * 24,
-        _ => return Err(AppError::Proxy(format!("Invalid TTL unit: {}", unit_part))),
-    };
-    
-    // Validate reasonable limits (1 second to 1 year)
-    if seconds < 1 {
-        return Err(AppError::Proxy("TTL must be at least 1 second".to_string()));
-    }
-    if seconds > 365 * 24 * 60 * 60 {
-        return Err(AppError::Proxy("TTL cannot exceed 1 year".to_string()));
-    }
-    
-    Ok(seconds)
 }
 
 /// Filter headers to remove proxy-specific ones
