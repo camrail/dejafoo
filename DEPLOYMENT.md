@@ -70,13 +70,13 @@ cd dejafoo
 After deployment, you'll get a Lambda function URL. Test it:
 
 ```bash
-# Test with customer subdomain and their API
-curl -H "Host: abc.dejafoo.io" "https://your-lambda-url.lambda-url.us-east-1.on.aws/?url=https://jsonplaceholder.typicode.com/todos/1"
+# Test with customer subdomain, API, and custom TTL
+curl -H "Host: abc.dejafoo.io" "https://your-lambda-url.lambda-url.us-east-1.on.aws/?url=https://jsonplaceholder.typicode.com/todos/1&ttl=7d"
 
-# Test with different customer
-curl -H "Host: xyz.dejafoo.io" "https://your-lambda-url.lambda-url.us-east-1.on.aws/?url=https://api.github.com/users/octocat"
+# Test with different customer and TTL
+curl -H "Host: xyz.dejafoo.io" "https://your-lambda-url.lambda-url.us-east-1.on.aws/?url=https://api.github.com/users/octocat&ttl=30m"
 
-# Each customer gets separate cache entries!
+# Each customer gets separate cache entries with their own TTL!
 ```
 
 ## 🏗️ What Gets Deployed
@@ -104,15 +104,25 @@ The Lambda function uses these environment variables:
 
 **Note**: No `UPSTREAM_BASE_URL` needed - customers provide their own URLs via `?url=` parameter
 
-### Customer API URLs
-Customers provide their own API URLs via the `?url=` parameter:
+### Customer API URLs and TTL
+Customers provide their own API URLs and cache TTL via query parameters:
 ```bash
-# Customer "abc" proxies their API
-abc.dejafoo.io/?url=https://api.abc.com/users/1
+# Customer "abc" proxies their API with 7-day cache
+abc.dejafoo.io/?url=https://api.abc.com/users/1&ttl=7d
 
-# Customer "xyz" proxies their API  
-xyz.dejafoo.io/?url=https://api.xyz.com/products/123
+# Customer "xyz" proxies their API with 30-minute cache
+xyz.dejafoo.io/?url=https://api.xyz.com/products/123&ttl=30m
+
+# Customer "company" proxies their API with 2-hour cache
+company.dejafoo.io/?url=https://api.company.com/data/456&ttl=2h
 ```
+
+### TTL Format Support:
+- **Seconds**: `60s`, `120s`
+- **Minutes**: `30m`, `90m` 
+- **Hours**: `2h`, `12h`
+- **Days**: `7d`, `30d`
+- **Default**: 1 hour if no TTL specified
 
 ## 🌐 Multi-Tenant Usage
 
