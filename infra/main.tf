@@ -28,6 +28,14 @@ variable "environment" {
   default     = "dev"
 }
 
+# No upstream_base_url needed for managed service - customers provide their own URLs
+
+variable "lambda_zip_path" {
+  description = "Path to the Lambda deployment package"
+  type        = string
+  default     = "lambda-deployment.zip"
+}
+
 # Data sources
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
@@ -59,20 +67,16 @@ module "s3" {
   tags         = local.common_tags
 }
 
-module "api_gateway" {
-  source = "./modules/api-gateway"
+module "lambda" {
+  source = "./modules/lambda"
   
   project_name = local.project_name
   environment  = var.environment
   tags         = local.common_tags
-}
-
-module "certificates" {
-  source = "./modules/certs"
   
-  project_name = local.project_name
-  environment  = var.environment
-  tags         = local.common_tags
+  dynamodb_table_name = module.dynamodb.table_name
+  s3_bucket_name      = module.s3.bucket_name
+  lambda_zip_path     = var.lambda_zip_path
 }
 
 # Outputs
@@ -86,7 +90,12 @@ output "s3_bucket_name" {
   value       = module.s3.bucket_name
 }
 
-output "api_gateway_url" {
-  description = "API Gateway endpoint URL"
-  value       = module.api_gateway.api_url
+output "lambda_function_url" {
+  description = "Lambda function URL"
+  value       = module.lambda.function_url
+}
+
+output "lambda_function_name" {
+  description = "Lambda function name"
+  value       = module.lambda.function_name
 }

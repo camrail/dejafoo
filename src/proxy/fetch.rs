@@ -127,10 +127,23 @@ fn extract_headers(request: &Value) -> AppResult<HashMap<String, String>> {
 
 /// Build upstream URL from path and headers
 fn build_upstream_url(path: &str, headers: &HashMap<String, String>) -> AppResult<String> {
-    // Get upstream base URL from environment or headers
+    // Check if path contains a ?url= parameter (managed service mode)
+    if let Some(query_start) = path.find('?') {
+        let query_string = &path[query_start + 1..];
+        if let Some(url_param) = extract_url_parameter(query_string) {
+            // Validate the URL parameter
+            if url_param.starts_with("http://") || url_param.starts_with("https://") {
+                return Ok(url_param);
+            } else {
+                return Err(AppError::Proxy("URL parameter must start with http:// or https://".to_string()));
+            }
+        }
+    }
+    
+    // Fallback to environment variable or header (legacy mode)
     let base_url = std::env::var("UPSTREAM_BASE_URL")
         .or_else(|_| headers.get("x-upstream-url").cloned().ok_or(()))
-        .map_err(|_| AppError::Proxy("No upstream URL configured".to_string()))?;
+        .map_err(|_| AppError::Proxy("No upstream URL configured. Use ?url=https://example.com or set UPSTREAM_BASE_URL".to_string()))?;
     
     // Parse base URL
     let base_url = Url::parse(&base_url)
@@ -141,6 +154,18 @@ fn build_upstream_url(path: &str, headers: &HashMap<String, String>) -> AppResul
         .map_err(|e| AppError::Proxy(format!("Invalid path: {}", e)))?;
     
     Ok(full_url.to_string())
+}
+
+/// Extract URL parameter from query string
+fn extract_url_parameter(query_string: &str) -> Option<String> {
+    for param in query_string.split('&') {
+        if let Some((key, value)) = param.split_once('=') {
+            if key == "url" {
+                return Some(value.to_string());
+            }
+        }
+    }
+    None
 }
 
 /// Filter headers to remove proxy-specific ones
