@@ -14,11 +14,11 @@ NC='\033[0m' # No Color
 # Configuration - can be overridden by environment variables or command line args
 PROJECT_NAME=${1:-dejafoo}
 ENVIRONMENT=${2:-dev}
-AWS_REGION=${3:-us-east-1}
+AWS_REGION=${3:-eu-west-3}
 GITHUB_REPO_URL=${4:-"https://github.com/yourusername/dejafoo.git"}
 
 echo "Usage: $0 [project_name] [environment] [aws_region] [github_repo_url]"
-echo "Example: $0 my-dejafoo prod us-west-2 https://github.com/myorg/dejafoo.git"
+echo "Example: $0 my-dejafoo prod eu-west-3 https://github.com/myorg/dejafoo.git"
 
 echo -e "${GREEN}🚀 Setting up dejafoo infrastructure${NC}"
 echo "Project: $PROJECT_NAME"

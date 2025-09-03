@@ -29,7 +29,7 @@ git clone https://github.com/yourusername/dejafoo.git
 cd dejafoo
 
 # Run setup script with your parameters
-./scripts/setup-infrastructure.sh my-dejafoo prod us-west-2 https://github.com/myorg/dejafoo.git
+./scripts/setup-infrastructure.sh my-dejafoo prod eu-west-3 https://github.com/myorg/dejafoo.git
 ```
 
 ### Option B: Manual Terraform
