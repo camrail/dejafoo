@@ -2,13 +2,16 @@
 # Copy this to terraform.tfvars and customize for your deployment
 
 # AWS region where resources will be created
-aws_region = "us-east-1"
+aws_region = "eu-west-3"
 
 # Environment name (dev, staging, prod)
-environment = "dev"
+environment = "prod"
 
-# Base URL for your upstream service
-upstream_base_url = "https://jsonplaceholder.typicode.com"
+# GitHub repository URL for CodeBuild
+github_repo_url = "https://github.com/yourusername/dejafoo.git"
+
+# Domain name for Route53 (optional)
+domain_name = "dejafoo.io"
 
 # Path to the Lambda deployment package (auto-generated)
 lambda_zip_path = "lambda-deployment.zip"

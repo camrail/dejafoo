@@ -18,7 +18,7 @@ AWS_REGION=${3:-eu-west-3}
 GITHUB_REPO_URL=${4:-"https://github.com/yourusername/dejafoo.git"}
 
 echo "Usage: $0 [project_name] [environment] [aws_region] [github_repo_url]"
-echo "Example: $0 my-dejafoo prod eu-west-3 https://github.com/myorg/dejafoo.git"
+echo "Example: $0 dejafoo-prod prod eu-west-3 https://github.com/yourusername/dejafoo.git"
 
 echo -e "${GREEN}🚀 Setting up dejafoo infrastructure${NC}"
 echo "Project: $PROJECT_NAME"
