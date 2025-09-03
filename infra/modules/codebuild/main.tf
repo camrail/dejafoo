@@ -130,6 +130,7 @@ resource "aws_secretsmanager_secret_version" "dejafoo_secrets" {
     github_token = "your-github-token-here"
     aws_access_key_id = "your-aws-access-key-here"
     aws_secret_access_key = "your-aws-secret-key-here"
+    domain_name = "your-domain.com"
   })
 }
 

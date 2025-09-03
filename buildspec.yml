@@ -8,6 +8,7 @@ phases:
       - export GITHUB_TOKEN=$(echo $SECRETS | jq -r '.github_token')
       - export AWS_ACCESS_KEY_ID=$(echo $SECRETS | jq -r '.aws_access_key_id')
       - export AWS_SECRET_ACCESS_KEY=$(echo $SECRETS | jq -r '.aws_secret_access_key')
+      - export DOMAIN_NAME=$(echo $SECRETS | jq -r '.domain_name')
       - echo "🔧 Installing Rust..."
       - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
       - source ~/.cargo/env
@@ -32,8 +33,8 @@ phases:
       - echo "🚀 Deploying infrastructure with Terraform..."
       - cd infra
       - terraform init
-      - terraform plan
-      - terraform apply -auto-approve
+      - terraform plan -var="domain_name=$DOMAIN_NAME"
+      - terraform apply -var="domain_name=$DOMAIN_NAME" -auto-approve
       - echo "📋 Getting deployment outputs..."
       - terraform output -json > deployment-outputs.json
       - echo "✅ Deployment completed successfully"

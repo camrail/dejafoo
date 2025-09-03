@@ -54,7 +54,8 @@ After infrastructure is created, you'll get a Secrets Manager secret name. This 
 {
   "github_token": "ghp_your_github_personal_access_token",
   "aws_access_key_id": "AKIA...",
-  "aws_secret_access_key": "your_secret_key"
+  "aws_secret_access_key": "your_secret_key",
+  "domain_name": "dejafoo.io"
 }
 ```
 
@@ -73,7 +74,8 @@ aws secretsmanager update-secret \
   --secret-string '{
     "github_token": "ghp_your_github_personal_access_token",
     "aws_access_key_id": "AKIA...",
-    "aws_secret_access_key": "your_secret_key"
+    "aws_secret_access_key": "your_secret_key",
+    "domain_name": "dejafoo.io"
   }'
 ```
 
@@ -114,10 +116,32 @@ aws codebuild batch-get-builds --ids $BUILD_ID
 ## Step 5: Get Your Deployment URL
 
 After successful deployment:
+
+### If you configured a domain:
+```bash
+cd infra
+terraform output cloudfront_domain_name
+# Your service will be available at: https://dejafoo.io and https://*.dejafoo.io
+```
+
+### If no domain configured:
 ```bash
 cd infra
 terraform output lambda_function_url
+# Your service will be available at the Lambda Function URL
 ```
+
+### Domain Setup (if using custom domain):
+1. **Update your domain's nameservers** to point to Route53:
+   ```bash
+   cd infra
+   terraform output route53_name_servers
+   ```
+2. **Wait for DNS propagation** (can take up to 48 hours)
+3. **Your service will be available at**:
+   - `https://dejafoo.io` (main domain)
+   - `https://abc.dejafoo.io` (any subdomain)
+   - `https://xyz.dejafoo.io` (any subdomain)
 
 ## What Gets Created
 
@@ -127,6 +151,9 @@ terraform output lambda_function_url
 - ✅ **Lambda Function** - Your proxy service
 - ✅ **DynamoDB Table** - Cache metadata storage
 - ✅ **S3 Bucket** - Large cache objects storage
+- ✅ **Route53 Hosted Zone** - DNS management (if domain configured)
+- ✅ **SSL Certificate** - HTTPS support with wildcard subdomains
+- ✅ **CloudFront Distribution** - Global CDN and HTTPS termination
 - ✅ **IAM Roles** - Proper permissions for all services
 - ✅ **CloudWatch Logs** - Build and runtime logs
 

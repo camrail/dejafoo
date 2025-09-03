@@ -48,6 +48,12 @@ variable "branch_name" {
   default     = "main"
 }
 
+variable "domain_name" {
+  description = "Domain name for dejafoo (e.g., dejafoo.io)"
+  type        = string
+  default     = ""
+}
+
 # Data sources
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
@@ -102,6 +108,17 @@ module "codebuild" {
   tags            = local.common_tags
 }
 
+# Route53 module (only if domain_name is provided)
+module "route53" {
+  count  = var.domain_name != "" ? 1 : 0
+  source = "./modules/route53"
+  
+  domain_name                  = var.domain_name
+  lambda_function_url_domain   = module.lambda.function_url_domain
+  lambda_function_url_zone_id  = module.lambda.function_url_zone_id
+  tags                        = local.common_tags
+}
+
 # Outputs
 output "dynamodb_table_name" {
   description = "Name of the DynamoDB table"
@@ -131,4 +148,19 @@ output "codebuild_project_name" {
 output "secrets_manager_secret_name" {
   description = "Secrets Manager secret name"
   value       = module.codebuild.secrets_manager_secret_name
+}
+
+output "domain_name" {
+  description = "Domain name (if configured)"
+  value       = var.domain_name != "" ? var.domain_name : "Not configured"
+}
+
+output "route53_name_servers" {
+  description = "Route53 name servers (if domain configured)"
+  value       = var.domain_name != "" ? module.route53[0].name_servers : []
+}
+
+output "cloudfront_domain_name" {
+  description = "CloudFront distribution domain name (if domain configured)"
+  value       = var.domain_name != "" ? module.route53[0].cloudfront_domain_name : "Not configured"
 }
