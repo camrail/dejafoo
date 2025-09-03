@@ -132,16 +132,42 @@ terraform output lambda_function_url
 ```
 
 ### Domain Setup (if using custom domain):
-1. **Update your domain's nameservers** to point to Route53:
+
+**✅ Works with any domain registrar!** (GoDaddy, Namecheap, Cloudflare, etc.)
+
+1. **Get Route53 nameservers** from your deployment:
    ```bash
    cd infra
    terraform output route53_name_servers
    ```
-2. **Wait for DNS propagation** (can take up to 48 hours)
-3. **Your service will be available at**:
+
+2. **Update nameservers at your domain registrar**:
+   - Go to your domain registrar (where you bought the domain)
+   - Find DNS/Nameserver settings
+   - Replace existing nameservers with the Route53 ones
+   - Save changes
+
+3. **Wait for DNS propagation** (usually 15 minutes to 2 hours, max 48 hours)
+
+4. **Your service will be available at**:
    - `https://dejafoo.io` (main domain)
    - `https://abc.dejafoo.io` (any subdomain)
    - `https://xyz.dejafoo.io` (any subdomain)
+
+**Example nameservers you'll get:**
+```
+ns-123.awsdns-12.com
+ns-456.awsdns-45.net
+ns-789.awsdns-78.org
+ns-012.awsdns-01.co.uk
+```
+
+**Benefits of this approach:**
+- ✅ **Keep your domain where you bought it** - no need to transfer
+- ✅ **Use Route53 for DNS management** - better performance and features
+- ✅ **Automatic SSL certificates** - AWS handles certificate management
+- ✅ **Wildcard subdomain support** - any subdomain automatically works
+- ✅ **Global CDN** - CloudFront distribution for better performance
 
 ## What Gets Created
 
