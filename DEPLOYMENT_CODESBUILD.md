@@ -232,6 +232,20 @@ ns-789.awsdns-78.org
 ns-012.awsdns-01.co.uk
 ```
 
+#### Specific Instructions for Namecheap:
+
+1. **Log into your Namecheap account**
+2. **Go to Domain List** → Find `dejafoo.io` → Click **Manage**
+3. **Go to Advanced DNS tab**
+4. **Change nameservers**:
+   - Click **Change** next to "Nameservers"
+   - Select **Custom DNS**
+   - Enter the 4 Route53 nameservers from the terraform output
+   - Click **Save**
+5. **Wait for propagation** (usually 15-30 minutes)
+
+**Note**: The SSL certificate validation will complete automatically once DNS propagates!
+
 **Benefits of this approach:**
 - ✅ **Keep your domain where you bought it** - no need to transfer
 - ✅ **Use Route53 for DNS management** - better performance and features
