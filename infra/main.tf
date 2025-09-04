@@ -8,6 +8,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 4.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -77,6 +81,29 @@ resource "aws_codebuild_source_credential" "github" {
   auth_type   = "PERSONAL_ACCESS_TOKEN"
   server_type = "GITHUB"
   token       = var.github_token
+}
+
+# Secrets Manager secret for deployment credentials
+resource "aws_secretsmanager_secret" "dejafoo_secrets" {
+  name                    = "${local.project_name}-${var.environment}-secrets"
+  description             = "Deployment secrets for dejafoo ${var.environment}"
+  recovery_window_in_days = 7
+
+  tags = local.common_tags
+}
+
+# Secret version with placeholder values
+resource "aws_secretsmanager_secret_version" "dejafoo_secrets" {
+  secret_id = aws_secretsmanager_secret.dejafoo_secrets.id
+  secret_string = jsonencode({
+    # These will be updated manually in AWS Console
+    github_token      = "your_github_personal_access_token_here"
+    aws_access_key_id = "your_aws_access_key_here"
+    aws_secret_key    = "your_aws_secret_key_here"
+    domain_name       = var.domain_name
+  })
+
+  tags = local.common_tags
 }
 
 # Local values
@@ -169,7 +196,7 @@ output "codebuild_project_name" {
 
 output "secrets_manager_secret_name" {
   description = "Secrets Manager secret name"
-  value       = module.codebuild.secrets_manager_secret_name
+  value       = aws_secretsmanager_secret.dejafoo_secrets.name
 }
 
 output "domain_name" {
