@@ -6,13 +6,14 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 4.0"
     }
   }
 }
 
 provider "aws" {
-  region = var.aws_region
+  region  = var.aws_region
+  profile = var.aws_profile
 }
 
 # Variables
@@ -20,6 +21,12 @@ variable "aws_region" {
   description = "AWS region"
   type        = string
   default     = "eu-west-3"
+}
+
+variable "aws_profile" {
+  description = "AWS profile to use"
+  type        = string
+  default     = "dejafoo"
 }
 
 variable "environment" {
@@ -54,9 +61,22 @@ variable "domain_name" {
   default     = ""
 }
 
+variable "github_token" {
+  description = "GitHub Personal Access Token for private repository access"
+  type        = string
+  sensitive   = true
+}
+
 # Data sources
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
+
+# CodeBuild source credential for GitHub
+resource "aws_codebuild_source_credential" "github" {
+  auth_type   = "PERSONAL_ACCESS_TOKEN"
+  server_type = "GITHUB"
+  token       = var.github_token
+}
 
 # Local values
 locals {
@@ -86,6 +106,7 @@ module "s3" {
 }
 
 module "lambda" {
+  count = fileexists(var.lambda_zip_path) ? 1 : 0
   source = "./modules/lambda"
   
   project_name = local.project_name
@@ -114,8 +135,8 @@ module "route53" {
   source = "./modules/route53"
   
   domain_name                  = var.domain_name
-  lambda_function_url_domain   = module.lambda.function_url_domain
-  lambda_function_url_zone_id  = module.lambda.function_url_zone_id
+  lambda_function_url_domain   = length(module.lambda) > 0 ? module.lambda[0].function_url_domain : ""
+  lambda_function_url_zone_id  = length(module.lambda) > 0 ? module.lambda[0].function_url_zone_id : ""
   tags                        = local.common_tags
 }
 
@@ -132,12 +153,12 @@ output "s3_bucket_name" {
 
 output "lambda_function_url" {
   description = "Lambda function URL"
-  value       = module.lambda.function_url
+  value       = length(module.lambda) > 0 ? module.lambda[0].function_url : "Lambda not deployed yet"
 }
 
 output "lambda_function_name" {
   description = "Lambda function name"
-  value       = module.lambda.function_name
+  value       = length(module.lambda) > 0 ? module.lambda[0].function_name : "Lambda not deployed yet"
 }
 
 output "codebuild_project_name" {

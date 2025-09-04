@@ -3,7 +3,7 @@ resource "aws_lambda_function" "dejafoo_proxy" {
   function_name = "${var.project_name}-proxy-${var.environment}"
   role         = aws_iam_role.lambda_role.arn
   handler      = "bootstrap"
-  runtime      = "provided.al2023"
+  runtime      = "provided.al2"
   filename     = var.lambda_zip_path
   source_code_hash = filebase64sha256(var.lambda_zip_path)
   

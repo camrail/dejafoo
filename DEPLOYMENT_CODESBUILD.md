@@ -17,30 +17,77 @@ Private GitHub Repo → CodeBuild → Secrets Manager → Terraform → AWS Reso
 1. **AWS Account** with appropriate permissions
 2. **Private GitHub Repository** with your dejafoo code
 3. **GitHub Personal Access Token** with repo access
-4. **AWS CLI** installed and configured
-5. **Terraform** installed
+4. **AWS CLI** installed and configured with a profile (e.g., `dejafoo`)
+5. **Terraform** installed (version 1.13+ recommended)
+
+### Important Notes:
+- **Terraform Version**: Use Terraform 1.13+ for compatibility with AWS provider v4.x
+- **AWS Profile**: The deployment scripts use the `dejafoo` profile by default
+- **GitHub PAT**: Must have `repo` permissions for private repository access
 
 ## Step 1: Initial Infrastructure Setup
 
 ### Option A: Using the Setup Script
 ```bash
 # Clone your private repo
-git clone https://github.com/yourusername/dejafoo.git
+git clone https://github.com/camrail/dejafoo.git
 cd dejafoo
 
 # Run setup script with your parameters
-./scripts/setup-infrastructure.sh dejafoo-prod prod eu-west-3 https://github.com/yourusername/dejafoo.git
+./scripts/setup-infrastructure.sh dejafoo-prod prod eu-west-3 https://github.com/camrail/dejafoo.git
 ```
 
 ### Option B: Manual Terraform
 ```bash
+# First create terraform.tfvars with required values
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your values
+
 cd infra
 terraform init
-terraform plan -var="github_repo_url=https://github.com/yourusername/dejafoo.git"
+terraform plan
 terraform apply
 ```
 
-## Step 2: Configure Secrets in AWS Secrets Manager
+### Option C: Using Deploy Script (Recommended)
+```bash
+# Build and deploy in one command
+./scripts/deploy.sh prod eu-west-3 dejafoo
+```
+
+## Step 2: Configure GitHub Authentication
+
+**CRITICAL:** For private repositories, you must configure GitHub authentication in CodeBuild.
+
+### Option A: Via Terraform (Recommended)
+The infrastructure now automatically configures GitHub authentication using your PAT:
+
+```bash
+# Create terraform.tfvars file with your values
+cat > infra/terraform.tfvars << EOF
+environment = "prod"
+aws_region = "eu-west-3"
+aws_profile = "dejafoo"
+github_token = "your_github_pat_here"
+github_repo_url = "https://github.com/camrail/dejafoo.git"
+domain_name = "dejafoo.io"
+EOF
+
+# Apply with variables from file
+cd infra
+terraform apply
+```
+
+**Note**: The `github_token` variable is required and has no default value for security reasons.
+
+### Option B: Via AWS Console
+1. Go to **AWS CodeBuild** → **Source providers**
+2. Click **Connect to GitHub**
+3. Select **Personal access token**
+4. Enter your GitHub PAT
+5. Click **Connect**
+
+## Step 3: Configure Secrets in AWS Secrets Manager
 
 After infrastructure is created, you'll get a Secrets Manager secret name. This is where ALL your credentials are stored - no local files needed!
 
@@ -52,9 +99,9 @@ After infrastructure is created, you'll get a Secrets Manager secret name. This 
 
 ```json
 {
-  "github_token": "ghp_your_github_personal_access_token",
-  "aws_access_key_id": "AKIA...",
-  "aws_secret_access_key": "your_secret_key",
+  "github_token": "your_github_personal_access_token_here",
+  "aws_access_key_id": "your_aws_access_key_here",
+  "aws_secret_access_key": "your_aws_secret_key_here",
   "domain_name": "dejafoo.io"
 }
 ```
@@ -72,14 +119,15 @@ SECRET_NAME=$(cd infra && terraform output -raw secrets_manager_secret_name)
 aws secretsmanager update-secret \
   --secret-id $SECRET_NAME \
   --secret-string '{
-    "github_token": "ghp_your_github_personal_access_token",
-    "aws_access_key_id": "AKIA...",
-    "aws_secret_access_key": "your_secret_key",
+    "github_token": "your_github_personal_access_token_here",
+    "aws_access_key_id": "your_aws_access_key_here",
+    "aws_secret_access_key": "your_aws_secret_key_here",
     "domain_name": "dejafoo.io"
-  }'
+  }' \
+  --profile dejafoo
 ```
 
-## Step 3: Deploy
+## Step 4: Deploy
 
 ### Option A: Manual Build
 ```bash
@@ -87,33 +135,55 @@ aws secretsmanager update-secret \
 PROJECT_NAME=$(cd infra && terraform output -raw codebuild_project_name)
 
 # Start a build
-aws codebuild start-build --project-name $PROJECT_NAME
+aws codebuild start-build --project-name $PROJECT_NAME --profile dejafoo
 ```
 
-### Option B: Automatic Builds (Recommended)
+### Option B: Using Deploy Script (Recommended)
+```bash
+# Build and deploy everything
+./scripts/deploy.sh prod eu-west-3 dejafoo
+```
+
+### Option C: Automatic Builds
 1. Go to **AWS CodeBuild** in the console
 2. Find your project
 3. Go to **Build history** → **Start build**
 4. Or push to your GitHub repo to trigger automatic builds
 
-## Step 4: Monitor Deployment
+## Step 5: Monitor Deployment
 
 ### View Build Logs:
 ```bash
 # List recent builds
-aws codebuild list-builds-for-project --project-name $PROJECT_NAME
+aws codebuild list-builds-for-project --project-name $PROJECT_NAME --profile dejafoo
 
 # Get build details
-BUILD_ID=$(aws codebuild list-builds-for-project --project-name $PROJECT_NAME --query 'ids[0]' --output text)
-aws codebuild batch-get-builds --ids $BUILD_ID
+BUILD_ID=$(aws codebuild list-builds-for-project --project-name $PROJECT_NAME --profile dejafoo --query 'ids[0]' --output text)
+aws codebuild batch-get-builds --ids $BUILD_ID --profile dejafoo
+
+# Check build status
+aws codebuild batch-get-builds --ids $BUILD_ID --profile dejafoo --query 'builds[0].buildStatus'
 ```
 
 ### View CloudWatch Logs:
+```bash
+# Get log stream name from build details
+LOG_STREAM=$(aws codebuild batch-get-builds --ids $BUILD_ID --profile dejafoo --query 'builds[0].logs.streamName' --output text)
+
+# View recent logs
+aws logs get-log-events \
+  --log-group-name "/aws/codebuild/dejafoo-prod-build" \
+  --log-stream-name $LOG_STREAM \
+  --profile dejafoo \
+  --limit 20
+```
+
+### Via AWS Console:
 1. Go to **CloudWatch** → **Log groups**
-2. Find `/aws/codebuild/dejafoo-dev-build`
+2. Find `/aws/codebuild/dejafoo-prod-build`
 3. View real-time build logs
 
-## Step 5: Get Your Deployment URL
+## Step 6: Get Your Deployment URL
 
 After successful deployment:
 
@@ -212,23 +282,124 @@ The build process uses these environment variables:
 
 ## Troubleshooting
 
-### Build Fails:
-1. Check **CloudWatch Logs** for detailed error messages
-2. Verify **Secrets Manager** has correct credentials
-3. Ensure **GitHub repo** is accessible
-4. Check **IAM permissions** for CodeBuild role
+### Quick Diagnosis:
+If you're experiencing issues, run the troubleshooting script first:
+```bash
+./scripts/troubleshoot-terraform.sh
+```
 
-### Terraform Errors:
-1. Verify **AWS credentials** in Secrets Manager
-2. Check **resource limits** in your AWS account
-3. Ensure **region** is correct
-4. Verify **GitHub repo URL** is accessible
+This script will check:
+- AWS CLI installation and credentials
+- Terraform installation and version
+- State lock issues
+- Basic terraform functionality
+
+### Common Issues and Solutions:
+
+#### 1. **GitHub Authentication Failures**
+**Error**: `authentication required for primary source and source version main`
+
+**Solution**: Configure GitHub source credential
+```bash
+# Via Terraform (recommended)
+terraform apply -var="github_token=your_github_pat" -var="aws_profile=dejafoo"
+
+# Via AWS Console
+# Go to CodeBuild → Source providers → Connect to GitHub
+```
+
+#### 2. **Terraform Hanging/No Progress**
+**Error**: Terraform appears to hang during plan/apply
+
+**Causes & Solutions**:
+- **Outdated Terraform**: Upgrade to v1.13+
+  ```bash
+  # Check version
+  terraform version
+  
+  # Download latest (if using Homebrew)
+  brew uninstall terraform
+  # Download from https://releases.hashicorp.com/terraform/
+  ```
+- **Invalid AWS credentials**: Check with `aws sts get-caller-identity --profile dejafoo`
+- **State lock issues**: `rm -f infra/.terraform.tfstate.lock.info`
+
+#### 3. **Secrets Manager Errors**
+**Error**: `You can't perform this operation on the secret because it was marked for deletion`
+
+**Solution**: Restore the secret
+```bash
+aws secretsmanager restore-secret --secret-id dejafoo-prod-secrets --profile dejafoo
+```
+
+#### 4. **Lambda Runtime Errors**
+**Error**: `expected runtime to be one of [...] got provided.al2023`
+
+**Solution**: Use compatible runtime
+```terraform
+# In infra/modules/lambda/main.tf
+runtime = "provided.al2"  # Instead of provided.al2023
+```
+
+#### 5. **Terraform Provider Version Conflicts**
+**Error**: `Inconsistent dependency lock file`
+
+**Solution**: Upgrade providers
+```bash
+terraform init -upgrade
+```
+
+#### 6. **CodeBuild Permission Errors**
+**Error**: `Service role does not allow AWS CodeBuild to create Amazon CloudWatch Logs log streams`
+
+**Solution**: Update IAM policy with wildcard
+```terraform
+# In infra/modules/codebuild/main.tf
+Resource = "arn:aws:logs:${var.aws_region}:*:log-group:/aws/codebuild/${var.project_name}-${var.environment}-build*"
+```
+
+#### 7. **Build Fails During Compilation**
+**Error**: Build fails in BUILD phase
+
+**Common Causes**:
+- Missing dependencies in Cargo.toml
+- Rust compilation errors
+- Memory/timeout issues
+
+**Solutions**:
+- Check CloudWatch logs for specific error
+- Verify Cargo.toml dependencies
+- Increase CodeBuild timeout if needed
+
+### Build Status Monitoring:
+```bash
+# Check current build status
+aws codebuild batch-get-builds --ids $BUILD_ID --profile dejafoo --query 'builds[0].buildStatus'
+
+# Monitor build phases
+aws codebuild batch-get-builds --ids $BUILD_ID --profile dejafoo --query 'builds[0].phases[*].{Phase:phaseType,Status:phaseStatus,Duration:durationInSeconds}'
+```
 
 ### Lambda Issues:
 1. Check **Lambda logs** in CloudWatch
 2. Verify **environment variables** are set
 3. Test **DynamoDB and S3** permissions
 4. Check **Lambda timeout** settings
+
+### Debugging Commands:
+```bash
+# Check AWS credentials
+aws sts get-caller-identity --profile dejafoo
+
+# List CodeBuild projects
+aws codebuild list-projects --profile dejafoo
+
+# Check source credentials
+aws codebuild list-source-credentials --profile dejafoo
+
+# View recent builds
+aws codebuild list-builds-for-project --project-name dejafoo-prod-build --profile dejafoo
+```
 
 ## Cost Optimization
 

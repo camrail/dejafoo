@@ -18,7 +18,8 @@ NC='\033[0m' # No Color
 # Configuration - can be overridden by environment variables
 PROJECT_NAME=${DEJAFOO_PROJECT_NAME:-dejafoo}
 ENVIRONMENT=${DEJAFOO_ENVIRONMENT:-${1:-dev}}
-AWS_REGION=${AWS_DEFAULT_REGION:-${2:-us-east-1}}
+AWS_REGION=${AWS_DEFAULT_REGION:-${2:-eu-west-3}}
+AWS_PROFILE=${AWS_PROFILE:-dejafoo}
 LAMBDA_ZIP="lambda-deployment.zip"
 
 echo -e "${GREEN}🚀 Deploying dejafoo to AWS Lambda${NC}"
@@ -26,10 +27,17 @@ echo -e "${YELLOW}Environment: ${ENVIRONMENT}${NC}"
 echo -e "${YELLOW}Region: ${AWS_REGION}${NC}"
 
 # Check if AWS CLI is configured
-if ! aws sts get-caller-identity > /dev/null 2>&1; then
-    echo -e "${RED}❌ AWS CLI not configured. Please run 'aws configure' first.${NC}"
+echo -e "${YELLOW}🔍 Checking AWS credentials (profile: ${AWS_PROFILE})...${NC}"
+if ! aws sts get-caller-identity --profile ${AWS_PROFILE} > /dev/null 2>&1; then
+    echo -e "${RED}❌ AWS CLI not configured or credentials are invalid.${NC}"
+    echo -e "${YELLOW}Please run 'aws configure' and provide valid credentials.${NC}"
+    echo -e "${YELLOW}You can also set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables.${NC}"
     exit 1
 fi
+
+# Show current AWS identity
+AWS_IDENTITY=$(aws sts get-caller-identity --profile ${AWS_PROFILE} --query 'Account' --output text)
+echo -e "${GREEN}✅ AWS credentials valid (Account: ${AWS_IDENTITY}, Profile: ${AWS_PROFILE})${NC}"
 
 # Check if Terraform is installed
 if ! command -v terraform &> /dev/null; then
@@ -54,18 +62,30 @@ echo -e "${GREEN}🏗️  Deploying infrastructure...${NC}"
 cd infra
 
 # Initialize Terraform
-terraform init
+echo -e "${GREEN}🏗️  Initializing Terraform...${NC}"
+if ! terraform init; then
+    echo -e "${RED}❌ Terraform initialization failed${NC}"
+    exit 1
+fi
 
 # Plan deployment
-terraform plan \
+echo -e "${GREEN}📋 Planning deployment...${NC}"
+if ! terraform plan \
     -var="aws_region=${AWS_REGION}" \
+    -var="aws_profile=${AWS_PROFILE}" \
     -var="environment=${ENVIRONMENT}" \
     -var="lambda_zip_path=../${LAMBDA_ZIP}" \
-    -out=tfplan
+    -out=tfplan; then
+    echo -e "${RED}❌ Terraform plan failed${NC}"
+    exit 1
+fi
 
 # Apply deployment
 echo -e "${GREEN}🚀 Applying deployment...${NC}"
-terraform apply tfplan
+if ! terraform apply -auto-approve tfplan; then
+    echo -e "${RED}❌ Terraform apply failed${NC}"
+    exit 1
+fi
 
 # Get outputs
 echo -e "${GREEN}📋 Deployment outputs:${NC}"

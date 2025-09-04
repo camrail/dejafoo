@@ -15,7 +15,13 @@ phases:
       - rustup target add x86_64-unknown-linux-gnu
       - echo "📦 Installing cross-compilation dependencies..."
       - yum update -y
-      - yum install -y gcc gcc-c++ make jq
+      - yum install -y gcc gcc-c++ make jq wget unzip
+      - echo "🔧 Installing Terraform..."
+      - wget https://releases.hashicorp.com/terraform/1.13.1/terraform_1.13.1_linux_amd64.zip
+      - unzip terraform_1.13.1_linux_amd64.zip
+      - mv terraform /usr/local/bin/
+      - chmod +x /usr/local/bin/terraform
+      - terraform version
       
   build:
     commands:
@@ -32,9 +38,19 @@ phases:
     commands:
       - echo "🚀 Deploying infrastructure with Terraform..."
       - cd infra
+      - echo "🔧 Creating terraform.tfvars..."
+      - cat > terraform.tfvars << EOF
+      - environment = "prod"
+      - aws_region = "eu-west-3"
+      - aws_profile = "dejafoo"
+      - github_token = "$GITHUB_TOKEN"
+      - github_repo_url = "https://github.com/camrail/dejafoo.git"
+      - domain_name = "$DOMAIN_NAME"
+      - lambda_zip_path = "../dejafoo-lambda.zip"
+      - EOF
       - terraform init
-      - terraform plan -var="domain_name=$DOMAIN_NAME"
-      - terraform apply -var="domain_name=$DOMAIN_NAME" -auto-approve
+      - terraform plan
+      - terraform apply -auto-approve
       - echo "📋 Getting deployment outputs..."
       - terraform output -json > deployment-outputs.json
       - echo "✅ Deployment completed successfully"

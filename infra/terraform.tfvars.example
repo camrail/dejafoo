@@ -4,11 +4,17 @@
 # AWS region where resources will be created
 aws_region = "eu-west-3"
 
+# AWS profile to use (default: dejafoo)
+aws_profile = "dejafoo"
+
 # Environment name (dev, staging, prod)
 environment = "prod"
 
 # GitHub repository URL for CodeBuild
-github_repo_url = "https://github.com/yourusername/dejafoo.git"
+github_repo_url = "https://github.com/camrail/dejafoo.git"
+
+# GitHub Personal Access Token for private repository access (REQUIRED)
+github_token = "your_github_personal_access_token_here"
 
 # Domain name for Route53 (optional)
 domain_name = "dejafoo.io"

@@ -15,6 +15,7 @@ NC='\033[0m' # No Color
 PROJECT_NAME=${1:-dejafoo}
 ENVIRONMENT=${2:-dev}
 AWS_REGION=${3:-eu-west-3}
+AWS_PROFILE=${AWS_PROFILE:-dejafoo}
 GITHUB_REPO_URL=${4:-"https://github.com/yourusername/dejafoo.git"}
 
 echo "Usage: $0 [project_name] [environment] [aws_region] [github_repo_url]"
@@ -33,6 +34,19 @@ if ! command -v aws &> /dev/null; then
     exit 1
 fi
 
+# Check if AWS CLI is configured
+echo -e "${YELLOW}🔍 Checking AWS credentials (profile: ${AWS_PROFILE})...${NC}"
+if ! aws sts get-caller-identity --profile ${AWS_PROFILE} > /dev/null 2>&1; then
+    echo -e "${RED}❌ AWS CLI not configured or credentials are invalid.${NC}"
+    echo -e "${YELLOW}Please run 'aws configure' and provide valid credentials.${NC}"
+    echo -e "${YELLOW}You can also set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables.${NC}"
+    exit 1
+fi
+
+# Show current AWS identity
+AWS_IDENTITY=$(aws sts get-caller-identity --profile ${AWS_PROFILE} --query 'Account' --output text)
+echo -e "${GREEN}✅ AWS credentials valid (Account: ${AWS_IDENTITY}, Profile: ${AWS_PROFILE})${NC}"
+
 # Check if Terraform is installed
 if ! command -v terraform &> /dev/null; then
     echo -e "${RED}❌ Terraform not found. Please install it first.${NC}"
@@ -42,22 +56,33 @@ fi
 # Initialize and apply Terraform
 echo -e "${YELLOW}🏗️ Initializing Terraform...${NC}"
 cd infra
-terraform init
+if ! terraform init; then
+    echo -e "${RED}❌ Terraform initialization failed${NC}"
+    exit 1
+fi
 
 echo -e "${YELLOW}📋 Planning infrastructure...${NC}"
-terraform plan \
+if ! terraform plan \
     -var="aws_region=$AWS_REGION" \
+    -var="aws_profile=$AWS_PROFILE" \
     -var="environment=$ENVIRONMENT" \
     -var="github_repo_url=$GITHUB_REPO_URL" \
-    -var="lambda_zip_path=placeholder.zip"
+    -var="lambda_zip_path=placeholder.zip"; then
+    echo -e "${RED}❌ Terraform plan failed${NC}"
+    exit 1
+fi
 
 echo -e "${YELLOW}🚀 Creating infrastructure...${NC}"
-terraform apply \
+if ! terraform apply \
     -var="aws_region=$AWS_REGION" \
+    -var="aws_profile=$AWS_PROFILE" \
     -var="environment=$ENVIRONMENT" \
     -var="github_repo_url=$GITHUB_REPO_URL" \
     -var="lambda_zip_path=placeholder.zip" \
-    -auto-approve
+    -auto-approve; then
+    echo -e "${RED}❌ Terraform apply failed${NC}"
+    exit 1
+fi
 
 # Get outputs
 CODEBUILD_PROJECT=$(terraform output -raw codebuild_project_name)
