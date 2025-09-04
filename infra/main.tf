@@ -21,6 +21,16 @@ provider "aws" {
   # In CodeBuild, this will be empty and use environment variables instead
 }
 
+# Local values
+locals {
+  project_name = "dejafoo"
+  common_tags = {
+    Project     = local.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+}
+
 # Variables
 variable "aws_region" {
   description = "AWS region"
@@ -72,6 +82,20 @@ variable "github_token" {
   sensitive   = true
 }
 
+variable "aws_access_key_id" {
+  description = "AWS Access Key ID for CodeBuild"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "aws_secret_key" {
+  description = "AWS Secret Access Key for CodeBuild"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # Data sources
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
@@ -92,27 +116,17 @@ resource "aws_secretsmanager_secret" "dejafoo_secrets" {
   tags = local.common_tags
 }
 
-# Secret version with placeholder values
+# Secret version with values from secrets file
 resource "aws_secretsmanager_secret_version" "dejafoo_secrets" {
   secret_id = aws_secretsmanager_secret.dejafoo_secrets.id
   secret_string = jsonencode({
-    # These will be updated manually in AWS Console
-    github_token      = "your_github_personal_access_token_here"
-    aws_access_key_id = "your_aws_access_key_here"
-    aws_secret_key    = "your_aws_secret_key_here"
+    github_token      = var.github_token
+    aws_access_key_id = var.aws_access_key_id
+    aws_secret_key    = var.aws_secret_key
     domain_name       = var.domain_name
   })
 }
 
-# Local values
-locals {
-  project_name = "dejafoo"
-  common_tags = {
-    Project     = local.project_name
-    Environment = var.environment
-    ManagedBy   = "terraform"
-  }
-}
 
 # Include modules
 module "dynamodb" {
@@ -132,7 +146,6 @@ module "s3" {
 }
 
 module "lambda" {
-  count = fileexists(var.lambda_zip_path) ? 1 : 0
   source = "./modules/lambda"
   
   project_name = local.project_name
@@ -153,6 +166,9 @@ module "codebuild" {
   github_repo_url  = var.github_repo_url
   branch_name      = var.branch_name
   tags            = local.common_tags
+  
+  # Ensure secret is created before CodeBuild module
+  depends_on = [aws_secretsmanager_secret.dejafoo_secrets]
 }
 
 # Route53 module (only if domain_name is provided)
@@ -161,8 +177,8 @@ module "route53" {
   source = "./modules/route53"
   
   domain_name                  = var.domain_name
-  lambda_function_url_domain   = length(module.lambda) > 0 ? module.lambda[0].function_url_domain : ""
-  lambda_function_url_zone_id  = length(module.lambda) > 0 ? module.lambda[0].function_url_zone_id : ""
+  lambda_function_url_domain   = module.lambda.function_url_domain
+  lambda_function_url_zone_id  = module.lambda.function_url_zone_id
   tags                        = local.common_tags
 }
 
@@ -179,12 +195,12 @@ output "s3_bucket_name" {
 
 output "lambda_function_url" {
   description = "Lambda function URL"
-  value       = length(module.lambda) > 0 ? module.lambda[0].function_url : "Lambda not deployed yet"
+  value       = module.lambda.function_url
 }
 
 output "lambda_function_name" {
   description = "Lambda function name"
-  value       = length(module.lambda) > 0 ? module.lambda[0].function_name : "Lambda not deployed yet"
+  value       = module.lambda.function_name
 }
 
 output "codebuild_project_name" {
