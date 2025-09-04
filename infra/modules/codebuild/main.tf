@@ -32,7 +32,7 @@ resource "aws_codebuild_project" "dejafoo" {
 
     environment_variable {
       name  = "SECRETS_MANAGER_SECRET_NAME"
-      value = aws_secretsmanager_secret.dejafoo_secrets.name
+      value = data.aws_secretsmanager_secret.dejafoo_secrets.name
     }
   }
 
@@ -95,7 +95,7 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "secretsmanager:GetSecretValue"
         ]
         Resource = [
-          aws_secretsmanager_secret.dejafoo_secrets.arn
+          data.aws_secretsmanager_secret.dejafoo_secrets.arn
         ]
       },
       {
