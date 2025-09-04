@@ -51,6 +51,8 @@ phases:
         lambda_zip_path = "../dejafoo-lambda.zip"
         EOF
       - terraform init
+      - echo "📥 Importing existing resources into Terraform state..."
+      - terraform import module.lambda.aws_iam_role.lambda_role dejafoo-lambda-role-prod || echo "Role already imported or doesn't exist"
       - terraform plan
       - terraform apply -auto-approve
       - echo "📋 Getting deployment outputs..."
