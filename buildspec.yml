@@ -40,7 +40,7 @@ phases:
       - cd infra
       - echo "🔧 Creating terraform.tfvars..."
       - |
-        cat > terraform.tfvars << 'EOF'
+        cat > terraform.tfvars << EOF
         environment = "prod"
         aws_region = "eu-west-3"
         github_token = "$GITHUB_TOKEN"
