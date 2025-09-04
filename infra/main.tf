@@ -12,8 +12,9 @@ terraform {
 }
 
 provider "aws" {
-  region  = var.aws_region
-  profile = var.aws_profile != "" ? var.aws_profile : null
+  region = var.aws_region
+  # Only use profile if aws_profile is explicitly set and not empty
+  # In CodeBuild, this will be empty and use environment variables instead
 }
 
 # Variables
