@@ -3,12 +3,6 @@ version: 0.2
 phases:
   pre_build:
     commands:
-      - echo "🔐 Retrieving secrets from AWS Secrets Manager..."
-      - SECRETS=$(aws secretsmanager get-secret-value --secret-id $SECRETS_MANAGER_SECRET_NAME --query SecretString --output text)
-      - export GITHUB_TOKEN=$(echo $SECRETS | jq -r '.github_token')
-      - export AWS_ACCESS_KEY_ID=$(echo $SECRETS | jq -r '.aws_access_key_id')
-      - export AWS_SECRET_ACCESS_KEY=$(echo $SECRETS | jq -r '.aws_secret_access_key')
-      - export DOMAIN_NAME=$(echo $SECRETS | jq -r '.domain_name')
       - echo "🔧 Installing Rust..."
       - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
       - source ~/.cargo/env
@@ -37,6 +31,14 @@ phases:
   post_build:
     commands:
       - echo "🚀 Deploying infrastructure with Terraform..."
+      - echo "🔑 Retrieving AWS credentials from Secrets Manager..."
+      - |
+        SECRETS=$(aws secretsmanager get-secret-value --secret-id $SECRETS_MANAGER_SECRET_NAME --query SecretString --output text)
+        export AWS_ACCESS_KEY_ID=$(echo $SECRETS | jq -r '.aws_access_key_id')
+        export AWS_SECRET_ACCESS_KEY=$(echo $SECRETS | jq -r '.aws_secret_key')
+        export GITHUB_TOKEN=$(echo $SECRETS | jq -r '.github_token')
+        export DOMAIN_NAME=$(echo $SECRETS | jq -r '.domain_name')
+        echo "✅ AWS credentials retrieved successfully"
       - cd infra
       - echo "🔧 Creating terraform.tfvars..."
       - |
