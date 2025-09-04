@@ -102,8 +102,6 @@ resource "aws_secretsmanager_secret_version" "dejafoo_secrets" {
     aws_secret_key    = "your_aws_secret_key_here"
     domain_name       = var.domain_name
   })
-
-  tags = local.common_tags
 }
 
 # Local values
