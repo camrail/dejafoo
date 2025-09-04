@@ -1,3 +1,8 @@
+# Data source for Secrets Manager secret (defined in root module)
+data "aws_secretsmanager_secret" "dejafoo_secrets" {
+  name = "${var.project_name}-${var.environment}-secrets"
+}
+
 # CodeBuild project for dejafoo
 resource "aws_codebuild_project" "dejafoo" {
   name          = "${var.project_name}-${var.environment}-build"
