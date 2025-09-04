@@ -113,26 +113,7 @@ resource "aws_iam_role_policy" "codebuild_policy" {
   })
 }
 
-# Secrets Manager secret for deployment credentials
-resource "aws_secretsmanager_secret" "dejafoo_secrets" {
-  name                    = "${var.project_name}-${var.environment}-secrets"
-  description             = "Deployment secrets for dejafoo ${var.environment}"
-  recovery_window_in_days = 7
-
-  tags = var.tags
-}
-
-# Secret version with placeholder values
-resource "aws_secretsmanager_secret_version" "dejafoo_secrets" {
-  secret_id = aws_secretsmanager_secret.dejafoo_secrets.id
-  secret_string = jsonencode({
-    # These will be updated manually in AWS Console
-    github_token = "your-github-token-here"
-    aws_access_key_id = "your-aws-access-key-here"
-    aws_secret_access_key = "your-aws-secret-key-here"
-    domain_name = "your-domain.com"
-  })
-}
+# Secrets Manager secret is now defined in the root module
 
 # CloudWatch Log Group for CodeBuild
 resource "aws_cloudwatch_log_group" "codebuild_logs" {
