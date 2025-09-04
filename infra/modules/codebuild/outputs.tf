@@ -8,12 +8,4 @@ output "codebuild_project_arn" {
   value       = aws_codebuild_project.dejafoo.arn
 }
 
-output "secrets_manager_secret_arn" {
-  description = "ARN of the Secrets Manager secret"
-  value       = data.aws_secretsmanager_secret.dejafoo_secrets.arn
-}
-
-output "secrets_manager_secret_name" {
-  description = "Name of the Secrets Manager secret"
-  value       = data.aws_secretsmanager_secret.dejafoo_secrets.name
-}
+# Secrets Manager outputs are now handled by the root module
