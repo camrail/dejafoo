@@ -39,15 +39,16 @@ phases:
       - echo "🚀 Deploying infrastructure with Terraform..."
       - cd infra
       - echo "🔧 Creating terraform.tfvars..."
-      - cat > terraform.tfvars << EOF
-      - environment = "prod"
-      - aws_region = "eu-west-3"
-      - aws_profile = "dejafoo"
-      - github_token = "$GITHUB_TOKEN"
-      - github_repo_url = "https://github.com/camrail/dejafoo.git"
-      - domain_name = "$DOMAIN_NAME"
-      - lambda_zip_path = "../dejafoo-lambda.zip"
-      - EOF
+      - |
+        cat > terraform.tfvars << 'EOF'
+        environment = "prod"
+        aws_region = "eu-west-3"
+        aws_profile = "dejafoo"
+        github_token = "$GITHUB_TOKEN"
+        github_repo_url = "https://github.com/camrail/dejafoo.git"
+        domain_name = "$DOMAIN_NAME"
+        lambda_zip_path = "../dejafoo-lambda.zip"
+        EOF
       - terraform init
       - terraform plan
       - terraform apply -auto-approve
