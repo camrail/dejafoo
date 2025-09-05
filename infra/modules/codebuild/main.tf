@@ -1,4 +1,5 @@
 # Data source for Secrets Manager secret (defined in root module)
+# This will be created by the root module first
 data "aws_secretsmanager_secret" "dejafoo_secrets" {
   name = "${var.project_name}-${var.environment}-secrets"
 }
@@ -39,6 +40,7 @@ resource "aws_codebuild_project" "dejafoo" {
       name  = "SECRETS_MANAGER_SECRET_NAME"
       value = data.aws_secretsmanager_secret.dejafoo_secrets.name
     }
+
   }
 
   source {
@@ -92,17 +94,22 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-        Resource = "arn:aws:logs:${var.aws_region}:*:log-group:/aws/codebuild/${var.project_name}-${var.environment}-build"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "secretsmanager:GetSecretValue"
-        ]
         Resource = [
-          data.aws_secretsmanager_secret.dejafoo_secrets.arn
+          "arn:aws:logs:${var.aws_region}:*:log-group:/aws/codebuild/${var.project_name}-${var.environment}-build*",
+          "arn:aws:logs:${var.aws_region}:*:log-group:/aws/codebuild/${var.project_name}-${var.environment}-build*:log-stream:*"
         ]
       },
+                  {
+              Effect = "Allow"
+              Action = [
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:DescribeSecret",
+                "secretsmanager:GetResourcePolicy"
+              ]
+              Resource = [
+                data.aws_secretsmanager_secret.dejafoo_secrets.arn
+              ]
+            },
       {
         Effect = "Allow"
         Action = [
@@ -110,7 +117,11 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "iam:*",
           "dynamodb:*",
           "s3:*",
-          "terraform:*"
+          "route53:*",
+          "acm:*",
+          "cloudfront:*",
+          "codebuild:*",
+          "secretsmanager:*"
         ]
         Resource = "*"
       }

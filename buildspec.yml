@@ -34,11 +34,9 @@ phases:
       - echo "🔑 Retrieving AWS credentials from Secrets Manager..."
       - |
         SECRETS=$(aws secretsmanager get-secret-value --secret-id $SECRETS_MANAGER_SECRET_NAME --query SecretString --output text)
-        export AWS_ACCESS_KEY_ID=$(echo $SECRETS | jq -r '.aws_access_key_id')
-        export AWS_SECRET_ACCESS_KEY=$(echo $SECRETS | jq -r '.aws_secret_key')
         export GITHUB_TOKEN=$(echo $SECRETS | jq -r '.github_token')
         export DOMAIN_NAME=$(echo $SECRETS | jq -r '.domain_name')
-        echo "✅ AWS credentials retrieved successfully"
+        echo "✅ Secrets retrieved successfully (using CodeBuild service role for AWS auth)"
       - cd infra
       - echo "🔧 Creating terraform.tfvars..."
       - |
@@ -53,8 +51,8 @@ phases:
       - terraform init
       - echo "📥 Importing existing resources into Terraform state..."
       - terraform import module.lambda.aws_iam_role.lambda_role dejafoo-lambda-role-prod || echo "Role already imported or doesn't exist"
-      - terraform plan
-      - terraform apply -auto-approve
+      - terraform plan -target=module.lambda
+      - terraform apply -target=module.lambda -auto-approve
       - echo "📋 Getting deployment outputs..."
       - terraform output -json > deployment-outputs.json
       - echo "✅ Deployment completed successfully"
