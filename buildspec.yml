@@ -30,37 +30,29 @@ phases:
 
   post_build:
     commands:
-      - echo "🚀 Deploying infrastructure with Terraform..."
-      - echo "🔑 Retrieving AWS credentials from Secrets Manager..."
+      - echo "🚀 Deploying Lambda function..."
+      - echo "📦 Updating Lambda function with new code..."
       - |
-        SECRETS=$(aws secretsmanager get-secret-value --secret-id $SECRETS_MANAGER_SECRET_NAME --query SecretString --output text)
-        export GITHUB_TOKEN=$(echo $SECRETS | jq -r '.github_token')
-        export DOMAIN_NAME=$(echo $SECRETS | jq -r '.domain_name')
-        echo "✅ Secrets retrieved successfully (using CodeBuild service role for AWS auth)"
-      - cd infra
-      - echo "🔧 Creating terraform.tfvars..."
+        aws lambda update-function-code \
+          --function-name dejafoo-proxy-prod \
+          --zip-file fileb://dejafoo-lambda.zip
+      - echo "⏳ Waiting for function update to complete..."
       - |
-        cat > terraform.tfvars << EOF
-        environment = "prod"
-        aws_region = "eu-west-3"
-        github_token = "$GITHUB_TOKEN"
-        github_repo_url = "https://github.com/camrail/dejafoo.git"
-        domain_name = "$DOMAIN_NAME"
-        lambda_zip_path = "../dejafoo-lambda.zip"
-        EOF
-      - terraform init
-      - echo "📥 Importing existing resources into Terraform state..."
-      - terraform import module.lambda.aws_iam_role.lambda_role dejafoo-lambda-role-prod || echo "Role already imported or doesn't exist"
-      - terraform plan -target=module.lambda
-      - terraform apply -target=module.lambda -auto-approve
-      - echo "📋 Getting deployment outputs..."
-      - terraform output -json > deployment-outputs.json
+        aws lambda wait function-updated \
+          --function-name dejafoo-proxy-prod
+      - echo "✅ Lambda function updated successfully"
+      - echo "📋 Getting function info..."
+      - |
+        aws lambda get-function \
+          --function-name dejafoo-proxy-prod \
+          --query 'Configuration.{FunctionName:FunctionName,Runtime:Runtime,LastModified:LastModified,FunctionUrl:FunctionUrl}' \
+          > deployment-info.json
       - echo "✅ Deployment completed successfully"
 
 artifacts:
   files:
     - dejafoo-lambda.zip
-    - infra/deployment-outputs.json
+    - deployment-info.json
   name: dejafoo-deployment-$(date +%Y-%m-%d-%H-%M-%S)
 
 cache:

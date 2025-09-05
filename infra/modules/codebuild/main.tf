@@ -113,17 +113,11 @@ resource "aws_iam_role_policy" "codebuild_policy" {
       {
         Effect = "Allow"
         Action = [
-          "lambda:*",
-          "iam:*",
-          "dynamodb:*",
-          "s3:*",
-          "route53:*",
-          "acm:*",
-          "cloudfront:*",
-          "codebuild:*",
-          "secretsmanager:*"
+          "lambda:UpdateFunctionCode",
+          "lambda:GetFunction",
+          "lambda:GetFunctionConfiguration"
         ]
-        Resource = "*"
+        Resource = "arn:aws:lambda:${var.aws_region}:*:function:${var.project_name}-proxy-${var.environment}"
       }
     ]
   })
