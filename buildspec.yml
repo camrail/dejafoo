@@ -1,15 +1,6 @@
 version: 0.2
 
 phases:
-  pre_build:
-    commands:
-      - echo "🔧 Setting up Docker for Lambda-compatible build..."
-      - yum update -y
-      - yum install -y docker
-      - service docker start
-      - usermod -a -G docker ec2-user
-      - echo "✅ Docker setup completed"
-      
   build:
     commands:
       - echo "🔨 Building Rust binary using Lambda-compatible base image..."
