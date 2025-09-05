@@ -20,7 +20,7 @@ output "role_arn" {
 
 output "function_url_domain" {
   description = "Domain name of the Lambda Function URL"
-  value       = replace(aws_lambda_function_url.dejafoo_proxy_url.function_url, "https://", "")
+  value       = replace(replace(aws_lambda_function_url.dejafoo_proxy_url.function_url, "https://", ""), "/", "")
 }
 
 output "function_url_zone_id" {

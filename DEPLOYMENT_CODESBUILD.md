@@ -55,41 +55,52 @@ terraform apply
 ./scripts/deploy.sh prod eu-west-3 dejafoo
 ```
 
-## Step 2: Configure GitHub Authentication
+## Step 2: Configure Secrets
 
-**CRITICAL:** For private repositories, you must configure GitHub authentication in CodeBuild.
+**IMPORTANT:** All secrets are now managed via local files that are gitignored for security.
 
-### Option A: Via Terraform (Recommended)
-The infrastructure now automatically configures GitHub authentication using your PAT:
+### Setup Secrets Files
 
-```bash
-# Create terraform.tfvars file with your values
-cat > infra/terraform.tfvars << EOF
-environment = "prod"
-aws_region = "eu-west-3"
-aws_profile = "dejafoo"
-github_token = "your_github_pat_here"
-github_repo_url = "https://github.com/camrail/dejafoo.git"
-domain_name = "dejafoo.io"
-EOF
+1. **Create secrets file** from template:
+   ```bash
+   cd infra
+   cp secrets.tfvars.example secrets.tfvars
+   ```
 
-# Apply with variables from file
-cd infra
-terraform apply
-```
+2. **Edit `secrets.tfvars`** with your actual values:
+   ```bash
+   # GitHub Personal Access Token
+   github_token = "your_github_personal_access_token_here"
+   
+   # AWS Credentials (if needed for CodeBuild)
+   aws_access_key_id = "your_aws_access_key_here"
+   aws_secret_key = "your_aws_secret_key_here"
+   
+   # Domain name
+   domain_name = "dejafoo.io"
+   ```
 
-**Note**: The `github_token` variable is required and has no default value for security reasons.
+3. **Create `terraform.tfvars`** with non-sensitive configuration:
+   ```bash
+   cat > terraform.tfvars << EOF
+   environment = "prod"
+   aws_region = "eu-west-3"
+   aws_profile = "dejafoo"
+   github_repo_url = "https://github.com/camrail/dejafoo.git"
+   EOF
+   ```
 
-### Option B: Via AWS Console
-1. Go to **AWS CodeBuild** → **Source providers**
-2. Click **Connect to GitHub**
-3. Select **Personal access token**
-4. Enter your GitHub PAT
-5. Click **Connect**
+**Security Notes:**
+- `secrets.tfvars` is gitignored and contains your actual secrets
+- `terraform.tfvars` contains non-sensitive config and can be committed
+- All secrets are automatically deployed to AWS Secrets Manager during `terraform apply`
 
-## Step 3: Configure Secrets in AWS Secrets Manager
+## Step 3: Deploy Infrastructure
 
-After infrastructure is created, you'll get a Secrets Manager secret name. This is where ALL your credentials are stored - no local files needed!
+The infrastructure will automatically:
+- Configure GitHub authentication using your PAT
+- Create AWS Secrets Manager secret with all your credentials
+- Set up all required AWS resources
 
 ### Via AWS Console:
 1. Go to **AWS Secrets Manager**

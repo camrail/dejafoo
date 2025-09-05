@@ -22,3 +22,10 @@ target
 
 # Development cache directory
 .dev-cache/
+
+# Terraform secrets and state files
+infra/secrets.tfvars
+infra/.terraform/
+infra/.terraform.lock.hcl
+infra/terraform.tfstate*
+infra/.terraform.tfstate.lock.info

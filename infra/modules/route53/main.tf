@@ -48,32 +48,28 @@ resource "aws_acm_certificate_validation" "dejafoo_wildcard" {
 
 # Main domain A record (points to Lambda Function URL)
 resource "aws_route53_record" "dejafoo_main" {
+  count   = var.lambda_function_url_domain != "" ? 1 : 0
   zone_id = aws_route53_zone.dejafoo.zone_id
   name    = var.domain_name
-  type    = "A"
-
-  alias {
-    name                   = var.lambda_function_url_domain
-    zone_id                = var.lambda_function_url_zone_id
-    evaluate_target_health = false
-  }
+  type    = "CNAME"
+  ttl     = 300
+  records = [var.lambda_function_url_domain]
 }
 
-# Wildcard subdomain A record (points to Lambda Function URL)
+# Wildcard subdomain CNAME record (points to Lambda Function URL)
 resource "aws_route53_record" "dejafoo_wildcard" {
+  count   = var.lambda_function_url_domain != "" ? 1 : 0
   zone_id = aws_route53_zone.dejafoo.zone_id
   name    = "*.${var.domain_name}"
-  type    = "A"
-
-  alias {
-    name                   = var.lambda_function_url_domain
-    zone_id                = var.lambda_function_url_zone_id
-    evaluate_target_health = false
-  }
+  type    = "CNAME"
+  ttl     = 300
+  records = [var.lambda_function_url_domain]
 }
 
 # CloudFront distribution for HTTPS and better performance
 resource "aws_cloudfront_distribution" "dejafoo" {
+  count = 0
+  
   origin {
     domain_name = var.lambda_function_url_domain
     origin_id   = "dejafoo-lambda"
@@ -150,26 +146,4 @@ resource "aws_cloudfront_distribution" "dejafoo" {
 }
 
 # Update Route53 records to point to CloudFront
-resource "aws_route53_record" "dejafoo_main_cloudfront" {
-  zone_id = aws_route53_zone.dejafoo.zone_id
-  name    = var.domain_name
-  type    = "A"
-
-  alias {
-    name                   = aws_cloudfront_distribution.dejafoo.domain_name
-    zone_id                = aws_cloudfront_distribution.dejafoo.hosted_zone_id
-    evaluate_target_health = false
-  }
-}
-
-resource "aws_route53_record" "dejafoo_wildcard_cloudfront" {
-  zone_id = aws_route53_zone.dejafoo.zone_id
-  name    = "*.${var.domain_name}"
-  type    = "A"
-
-  alias {
-    name                   = aws_cloudfront_distribution.dejafoo.domain_name
-    zone_id                = aws_cloudfront_distribution.dejafoo.hosted_zone_id
-    evaluate_target_health = false
-  }
-}
+# CloudFront-specific A records removed - using Lambda Function URLs directly

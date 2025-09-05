@@ -29,7 +29,9 @@ async fn main() -> AppResult<()> {
         log::info!("Using real AWS cache store");
         CacheStore::new().await?
     };
+    log::info!("Loading cache policy...");
     let cache_policy = CachePolicy::load_from_config().await?;
+    log::info!("Cache policy loaded successfully");
     
     // Start the server
     let addr = SocketAddr::from(([0, 0, 0, 0], port));

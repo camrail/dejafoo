@@ -10,14 +10,19 @@ resource "aws_lambda_function" "dejafoo_proxy" {
   timeout = 30
   memory_size = 512
   
-  environment {
-    variables = {
-      RUST_LOG = "info"
-      DYNAMODB_TABLE_NAME = var.dynamodb_table_name
-      S3_BUCKET_NAME = var.s3_bucket_name
-      # No UPSTREAM_BASE_URL - customers provide their own URLs
-    }
+  # Ignore changes to code since CodeBuild manages it
+  lifecycle {
+    ignore_changes = [filename, source_code_hash]
   }
+  
+      environment {
+      variables = {
+        RUST_LOG = "info"
+        DYNAMODB_TABLE_NAME = var.dynamodb_table_name
+        S3_BUCKET_NAME = var.s3_bucket_name
+        UPSTREAM_BASE_URL = "https://httpbin.org"  # Default for testing
+      }
+    }
   
   tags = var.tags
 }
