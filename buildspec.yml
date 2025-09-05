@@ -1,22 +1,33 @@
 version: 0.2
 
-timeout-in-minutes: 20
+timeout-in-minutes: 10
 
 phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - echo "📦 Installing Node.js dependencies..."
+      - npm install --production
+      - echo "✅ Dependencies installed successfully"
+
   build:
     on-failure: ABORT
     commands:
-      - echo "🔨 Building Rust binary using Lambda-compatible Docker image..."
-      - docker build -f Dockerfile.lambda -t dejafoo-lambda-builder .
-      - echo "📦 Extracting Lambda deployment package..."
-      - docker create --name temp-container dejafoo-lambda-builder
-      - docker cp temp-container:/workspace/dejafoo-lambda.zip ./dejafoo-lambda.zip
-      - docker rm temp-container
+      - echo "🔨 Building JavaScript Lambda deployment package..."
+      - echo "📦 Creating deployment zip..."
+      - zip -r dejafoo-lambda.zip index.js package.json node_modules/
       - echo "✅ Build completed successfully"
 
   post_build:
     commands:
       - echo "🚀 Deploying Lambda function..."
+      - echo "🔧 Updating Lambda runtime to Node.js..."
+      - |
+        aws lambda update-function-configuration \
+          --function-name dejafoo-proxy-prod \
+          --runtime nodejs18.x \
+          --handler index.handler
       - echo "📦 Updating Lambda function with new code..."
       - |
         aws lambda update-function-code \
@@ -31,7 +42,7 @@ phases:
       - |
         aws lambda get-function \
           --function-name dejafoo-proxy-prod \
-          --query 'Configuration.{FunctionName:FunctionName,Runtime:Runtime,LastModified:LastModified,FunctionUrl:FunctionUrl}' \
+          --query 'Configuration.{FunctionName:FunctionName,Runtime:Runtime,LastModified:LastModified,Handler:Handler}' \
           > deployment-info.json
       - echo "✅ Deployment completed successfully"
 
@@ -43,10 +54,4 @@ artifacts:
 
 cache:
   paths:
-    - ~/.cargo/registry/**
-    - ~/.cargo/git/**
-    - target/**
-
-env:
-  variables:
-    RUST_BACKTRACE: 1
+    - node_modules/**

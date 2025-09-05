@@ -2,8 +2,8 @@
 resource "aws_lambda_function" "dejafoo_proxy" {
   function_name = "${var.project_name}-proxy-${var.environment}"
   role         = aws_iam_role.lambda_role.arn
-  handler      = "bootstrap"
-  runtime      = "provided.al2"
+  handler      = "index.handler"
+  runtime      = "nodejs18.x"
   filename     = var.lambda_zip_path
   source_code_hash = filebase64sha256(var.lambda_zip_path)
   
@@ -15,14 +15,15 @@ resource "aws_lambda_function" "dejafoo_proxy" {
     ignore_changes = [filename, source_code_hash]
   }
   
-      environment {
-      variables = {
-        RUST_LOG = "info"
-        DYNAMODB_TABLE_NAME = var.dynamodb_table_name
-        S3_BUCKET_NAME = var.s3_bucket_name
-        UPSTREAM_BASE_URL = "https://httpbin.org"  # Default for testing
-      }
+  environment {
+    variables = {
+      NODE_ENV = "production"
+      DYNAMODB_TABLE_NAME = var.dynamodb_table_name
+      S3_BUCKET_NAME = var.s3_bucket_name
+      UPSTREAM_BASE_URL = "https://httpbin.org"  # Default for testing
+      CACHE_TTL_SECONDS = "3600"  # 1 hour cache TTL
     }
+  }
   
   tags = var.tags
 }

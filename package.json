@@ -1,0 +1,25 @@
+{
+  "name": "dejafoo-proxy",
+  "version": "1.0.0",
+  "description": "A caching HTTP proxy service for Lambda",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy": "zip -r dejafoo-lambda.zip index.js package.json node_modules/",
+    "deploy-code-only": "zip dejafoo-lambda.zip index.js package.json"
+  },
+  "keywords": [
+    "proxy",
+    "cache",
+    "lambda",
+    "aws"
+  ],
+  "author": "dejafoo",
+  "license": "MIT",
+  "dependencies": {
+    "aws-sdk": "^2.1400.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
