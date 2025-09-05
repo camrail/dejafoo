@@ -19,8 +19,9 @@ phases:
       
   build:
     commands:
-      - echo "🔨 Building Rust binary for Lambda..."
+      - echo "🔨 Building Rust binary for Lambda with static linking..."
       - source ~/.cargo/env
+      - export RUSTFLAGS="-C target-feature=+crt-static"
       - cargo build --release --target x86_64-unknown-linux-gnu
       - echo "📦 Creating Lambda deployment package..."
       - cp target/x86_64-unknown-linux-gnu/release/dejafoo-proxy bootstrap
