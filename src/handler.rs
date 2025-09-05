@@ -16,23 +16,41 @@ async fn main() -> Result<(), Error> {
     setup_logging().map_err(|e| AppError::Generic(e.to_string()))?;
     log::info!("✅ Logging setup complete");
     
-    log::info!("📦 Initializing cache store...");
-    // Use file-based cache for Lambda to avoid AWS SDK initialization issues
-    let cache_store = CacheStore::file_based();
-    log::info!("✅ Cache store initialized (file-based)");
-    
-    log::info!("📋 Loading cache policy...");
-    let cache_policy = CachePolicy::load_from_config().await?;
-    log::info!("✅ Cache policy loaded");
-    
-    log::info!("🔧 Setting up Lambda handler...");
+    log::info!("🔧 Setting up simple Lambda handler...");
     let func = service_fn(|event: LambdaEvent<Value>| {
-        handler(event, &cache_store, &cache_policy)
+        simple_handler(event)
     });
     
     log::info!("✅ Lambda function ready to process requests");
     lambda_runtime::run(func).await?;
     Ok(())
+}
+
+async fn simple_handler(event: LambdaEvent<Value>) -> Result<Value, Error> {
+    log::info!("📨 Processing simple request");
+    
+    let request = event.payload;
+    let method = request["httpMethod"].as_str().unwrap_or("GET");
+    let path = request["path"].as_str().unwrap_or("/");
+    
+    log::info!("🔍 Request: {} {}", method, path);
+    
+    // Simple response
+    let response = serde_json::json!({
+        "statusCode": 200,
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "body": serde_json::json!({
+            "message": "Hello from Lambda!",
+            "method": method,
+            "path": path,
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        })
+    });
+    
+    log::info!("✅ Simple response generated");
+    Ok(response)
 }
 
 async fn handler(
