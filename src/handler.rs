@@ -11,17 +11,14 @@ use dejafoo::utils::{setup_logging, AppError, AppResult};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    log::info!("🚀 Starting Lambda function initialization...");
+    println!("🚀 Starting Lambda function initialization...");
     
-    setup_logging().map_err(|e| AppError::Generic(e.to_string()))?;
-    log::info!("✅ Logging setup complete");
-    
-    log::info!("🔧 Setting up simple Lambda handler...");
+    println!("🔧 Setting up simple Lambda handler...");
     let func = service_fn(|event: LambdaEvent<Value>| {
         simple_handler(event)
     });
     
-    log::info!("✅ Lambda function ready to process requests");
+    println!("✅ Lambda function ready to process requests");
     lambda_runtime::run(func).await?;
     Ok(())
 }
