@@ -1,35 +1,27 @@
 version: 0.2
 
 phases:
+  pre_build:
+    commands:
+      - echo "🔧 Installing Rust and musl target for static linking..."
+      - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - source ~/.cargo/env
+      - rustup target add x86_64-unknown-linux-musl
+      - echo "📦 Installing musl development tools..."
+      - yum update -y
+      - yum install -y musl-devel musl-gcc
+      - echo "✅ Dependencies installed"
+      
   build:
     commands:
-      - echo "🔨 Building Rust binary using Lambda-compatible base image..."
-      - |
-        docker run --rm \
-          -v $(pwd):/workspace \
-          -w /workspace \
-          public.ecr.aws/lambda/provided:al2 \
-          /bin/bash -c "
-            echo '🔧 Installing Rust in Lambda environment...'
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-            source ~/.cargo/env
-            rustup target add x86_64-unknown-linux-gnu
-            
-            echo '📦 Installing build dependencies...'
-            yum update -y
-            yum install -y gcc gcc-c++ make
-            
-            echo '🔨 Building Rust binary...'
-            cargo build --release --target x86_64-unknown-linux-gnu
-            
-            echo '📦 Creating Lambda deployment package...'
-            cp target/x86_64-unknown-linux-gnu/release/dejafoo-proxy bootstrap
-            zip dejafoo-lambda.zip bootstrap
-            rm bootstrap
-            
-            echo '✅ Build completed successfully'
-          "
-      - echo "✅ Lambda-compatible build completed"
+      - echo "🔨 Building Rust binary with musl for static linking..."
+      - source ~/.cargo/env
+      - cargo build --release --target x86_64-unknown-linux-musl
+      - echo "📦 Creating Lambda deployment package..."
+      - cp target/x86_64-unknown-linux-musl/release/dejafoo-proxy bootstrap
+      - zip dejafoo-lambda.zip bootstrap
+      - rm bootstrap
+      - echo "✅ Build completed successfully"
 
   post_build:
     commands:
