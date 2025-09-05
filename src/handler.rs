@@ -17,8 +17,9 @@ async fn main() -> Result<(), Error> {
     log::info!("✅ Logging setup complete");
     
     log::info!("📦 Initializing cache store...");
-    let cache_store = CacheStore::new().await?;
-    log::info!("✅ Cache store initialized");
+    // Use file-based cache for Lambda to avoid AWS SDK initialization issues
+    let cache_store = CacheStore::file_based();
+    log::info!("✅ Cache store initialized (file-based)");
     
     log::info!("📋 Loading cache policy...");
     let cache_policy = CachePolicy::load_from_config().await?;

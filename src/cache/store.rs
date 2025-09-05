@@ -39,12 +39,8 @@ impl CacheStore {
         }
     }
 
-    /// Create a new cache store instance
+    /// Create a new cache store instance with lazy AWS client initialization
     pub async fn new() -> AppResult<Self> {
-        let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-        let dynamo_client = DynamoClient::new(&config);
-        let s3_client = S3Client::new(&config);
-        
         let table_name = std::env::var("DYNAMODB_TABLE_NAME")
             .unwrap_or_else(|_| "dejafoo-cache".to_string());
         let bucket_name = std::env::var("S3_BUCKET_NAME")
@@ -53,6 +49,11 @@ impl CacheStore {
             .unwrap_or_else(|_| "1048576".to_string()) // 1MB default
             .parse()
             .map_err(|_| AppError::Configuration("Invalid MAX_BODY_SIZE".to_string()))?;
+        
+        // Create placeholder clients - they will be initialized lazily
+        let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+        let dynamo_client = DynamoClient::new(&config);
+        let s3_client = S3Client::new(&config);
         
         Ok(CacheStore {
             dynamo_client,
