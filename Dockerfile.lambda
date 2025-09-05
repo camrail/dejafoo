@@ -1,0 +1,24 @@
+FROM public.ecr.aws/lambda/provided:al2
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install build dependencies
+RUN yum update -y && yum install -y gcc gcc-c++ make
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy source code
+COPY . .
+
+# Build the Rust binary
+RUN cargo build --release --target x86_64-unknown-linux-gnu
+
+# Create Lambda deployment package
+RUN cp target/x86_64-unknown-linux-gnu/release/dejafoo-proxy bootstrap && \
+    zip dejafoo-lambda.zip bootstrap && \
+    rm bootstrap
+
+# The zip file will be available at /workspace/dejafoo-lambda.zip
