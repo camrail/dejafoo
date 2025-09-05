@@ -46,19 +46,10 @@ resource "aws_acm_certificate_validation" "dejafoo_wildcard" {
   }
 }
 
-# Main domain A record (points to Lambda Function URL)
-resource "aws_route53_record" "dejafoo_main" {
-  count   = var.lambda_function_url_domain != "" ? 1 : 0
-  zone_id = aws_route53_zone.dejafoo.zone_id
-  name    = var.domain_name
-  type    = "CNAME"
-  ttl     = 300
-  records = [var.lambda_function_url_domain]
-}
-
 # Wildcard subdomain CNAME record (points to Lambda Function URL)
+# We'll add the DNS records manually after Lambda is created
+# since Terraform can't handle the dependency properly
 resource "aws_route53_record" "dejafoo_wildcard" {
-  count   = var.lambda_function_url_domain != "" ? 1 : 0
   zone_id = aws_route53_zone.dejafoo.zone_id
   name    = "*.${var.domain_name}"
   type    = "CNAME"

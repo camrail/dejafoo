@@ -179,20 +179,20 @@ function fetchFromUpstream(method, path, queryParams, headers, body) {
         
         console.log(`🌐 Fetching from upstream: ${upstreamUrl.toString()}`);
         
+        // Clean headers - remove hop-by-hop headers and undefined values
+        const cleanHeaders = { ...headers };
+        delete cleanHeaders.connection;
+        delete cleanHeaders.upgrade;
+        delete cleanHeaders['proxy-authenticate'];
+        delete cleanHeaders['proxy-authorization'];
+        delete cleanHeaders.te;
+        delete cleanHeaders.trailers;
+        delete cleanHeaders['transfer-encoding'];
+        cleanHeaders.host = upstreamUrl.host;
+        
         const options = {
             method,
-            headers: {
-                ...headers,
-                // Remove hop-by-hop headers
-                'host': upstreamUrl.host,
-                'connection': undefined,
-                'upgrade': undefined,
-                'proxy-authenticate': undefined,
-                'proxy-authorization': undefined,
-                'te': undefined,
-                'trailers': undefined,
-                'transfer-encoding': undefined
-            }
+            headers: cleanHeaders
         };
         
         const client = upstreamUrl.protocol === 'https:' ? https : http;

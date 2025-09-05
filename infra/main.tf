@@ -1,5 +1,5 @@
-# Main Terraform configuration for dejafoo infrastructure
-# This file defines the core infrastructure components
+# Simplified Terraform configuration for dejafoo infrastructure
+# JavaScript Lambda with direct deployment - no CodeBuild needed
 
 terraform {
   required_version = ">= 1.0"
@@ -17,8 +17,6 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
-  # Only use profile if aws_profile is explicitly set and not empty
-  # In CodeBuild, this will be empty and use environment variables instead
 }
 
 # Local values
@@ -38,36 +36,16 @@ variable "aws_region" {
   default     = "eu-west-3"
 }
 
-variable "aws_profile" {
-  description = "AWS profile to use"
-  type        = string
-  default     = "dejafoo"
-}
-
 variable "environment" {
   description = "Environment name"
   type        = string
-  default     = "dev"
+  default     = "prod"
 }
-
-# No upstream_base_url needed for managed service - customers provide their own URLs
 
 variable "lambda_zip_path" {
   description = "Path to the Lambda deployment package"
   type        = string
-  default     = "lambda-deployment.zip"
-}
-
-variable "github_repo_url" {
-  description = "GitHub repository URL for CodeBuild"
-  type        = string
-  default     = "https://github.com/yourusername/dejafoo.git"
-}
-
-variable "branch_name" {
-  description = "GitHub branch to build from"
-  type        = string
-  default     = "main"
+  default     = "placeholder-lambda.zip"
 }
 
 variable "domain_name" {
@@ -76,56 +54,9 @@ variable "domain_name" {
   default     = ""
 }
 
-variable "github_token" {
-  description = "GitHub Personal Access Token for private repository access"
-  type        = string
-  sensitive   = true
-}
-
-variable "aws_access_key_id" {
-  description = "AWS Access Key ID for CodeBuild"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-variable "aws_secret_key" {
-  description = "AWS Secret Access Key for CodeBuild"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
 # Data sources
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
-
-# CodeBuild source credential for GitHub
-resource "aws_codebuild_source_credential" "github" {
-  auth_type   = "PERSONAL_ACCESS_TOKEN"
-  server_type = "GITHUB"
-  token       = var.github_token
-}
-
-# Secrets Manager secret for deployment credentials
-resource "aws_secretsmanager_secret" "dejafoo_secrets" {
-  name                    = "${local.project_name}-${var.environment}-secrets"
-  description             = "Deployment secrets for dejafoo ${var.environment}"
-  recovery_window_in_days = 7
-
-  tags = local.common_tags
-}
-
-# Secret version with values from secrets file
-resource "aws_secretsmanager_secret_version" "dejafoo_secrets" {
-  secret_id = aws_secretsmanager_secret.dejafoo_secrets.id
-  secret_string = jsonencode({
-    github_token      = var.github_token
-    aws_access_key_id = var.aws_access_key_id
-    aws_secret_key    = var.aws_secret_key
-    domain_name       = var.domain_name
-  })
-}
 
 
 # Include modules
@@ -157,19 +88,6 @@ module "lambda" {
   lambda_zip_path     = var.lambda_zip_path
 }
 
-module "codebuild" {
-  source = "./modules/codebuild"
-  
-  project_name     = local.project_name
-  environment      = var.environment
-  aws_region       = var.aws_region
-  github_repo_url  = var.github_repo_url
-  branch_name      = var.branch_name
-  tags            = local.common_tags
-  
-  # Ensure secret is created before CodeBuild module
-  depends_on = [aws_secretsmanager_secret.dejafoo_secrets]
-}
 
 # Route53 module (only if domain_name is provided)
 module "route53" {
@@ -203,15 +121,6 @@ output "lambda_function_name" {
   value       = module.lambda.function_name
 }
 
-output "codebuild_project_name" {
-  description = "CodeBuild project name"
-  value       = module.codebuild.codebuild_project_name
-}
-
-output "secrets_manager_secret_name" {
-  description = "Secrets Manager secret name"
-  value       = aws_secretsmanager_secret.dejafoo_secrets.name
-}
 
 output "domain_name" {
   description = "Domain name (if configured)"
@@ -223,7 +132,3 @@ output "route53_name_servers" {
   value       = var.domain_name != "" ? module.route53[0].name_servers : []
 }
 
-output "cloudfront_domain_name" {
-  description = "CloudFront distribution domain name (if domain configured)"
-  value       = var.domain_name != "" ? module.route53[0].cloudfront_domain_name : "Not configured"
-}
