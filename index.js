@@ -1,203 +1,136 @@
 const AWS = require('aws-sdk');
-const https = require('https');
 const http = require('http');
+const https = require('https');
 const url = require('url');
-const crypto = require('crypto');
 
-// Initialize AWS clients
+// Initialize AWS services
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 const s3 = new AWS.S3();
 
 // Environment variables
 const DYNAMODB_TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'dejafoo-cache-prod';
 const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME || 'dejafoo-cache-prod';
-const UPSTREAM_BASE_URL = process.env.UPSTREAM_BASE_URL || 'https://httpbin.org';
-const CACHE_TTL_SECONDS = parseInt(process.env.CACHE_TTL_SECONDS || '3600'); // 1 hour default
+const DEFAULT_TTL_SECONDS = parseInt(process.env.CACHE_TTL_SECONDS || '3600');
 
-console.log('🚀 Dejafoo Proxy Service starting...');
-console.log('Environment:', {
-    DYNAMODB_TABLE_NAME,
-    S3_BUCKET_NAME,
-    UPSTREAM_BASE_URL,
-    CACHE_TTL_SECONDS
-});
-
-/**
- * Main Lambda handler
- */
-exports.handler = async (event) => {
-    console.log('📨 Processing request:', JSON.stringify(event, null, 2));
+// TTL parsing function
+function parseTTL(ttlString) {
+    if (!ttlString) return DEFAULT_TTL_SECONDS;
     
-    try {
-        const method = event.httpMethod || 'GET';
-        const path = event.path || '/';
-        const queryStringParameters = event.queryStringParameters || {};
-        const headers = event.headers || {};
-        const body = event.body;
-        
-        console.log(`🔍 Request: ${method} ${path}`);
-        
-        // Generate cache key
-        const cacheKey = generateCacheKey(method, path, queryStringParameters, headers, body);
-        console.log(`🔑 Cache key: ${cacheKey}`);
-        
-        // Try to get from cache first
-        const cachedResponse = await getCachedResponse(cacheKey);
-        if (cachedResponse) {
-            console.log('✅ Cache hit!');
-            return formatLambdaResponse(cachedResponse);
-        }
-        
-        console.log('❌ Cache miss, fetching from upstream');
-        
-        // Fetch from upstream
-        const upstreamResponse = await fetchFromUpstream(method, path, queryStringParameters, headers, body);
-        
-        // Cache the response if it's cacheable
-        if (isCacheable(upstreamResponse)) {
-            console.log('💾 Caching response');
-            await cacheResponse(cacheKey, upstreamResponse);
-        }
-        
-        return formatLambdaResponse(upstreamResponse);
-        
-    } catch (error) {
-        console.error('❌ Error processing request:', error);
-        return {
-            statusCode: 500,
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                error: 'Internal Server Error',
-                message: error.message,
-                timestamp: new Date().toISOString()
-            })
-        };
+    const match = ttlString.match(/^(\d+)([smhd])$/);
+    if (!match) return DEFAULT_TTL_SECONDS;
+    
+    const value = parseInt(match[1]);
+    const unit = match[2];
+    
+    switch (unit) {
+        case 's': return value;
+        case 'm': return value * 60;
+        case 'h': return value * 3600;
+        case 'd': return value * 86400;
+        default: return DEFAULT_TTL_SECONDS;
     }
-};
+}
 
-/**
- * Generate a cache key based on request parameters
- */
-function generateCacheKey(method, path, queryParams, headers, body) {
-    const keyData = {
-        method,
-        path,
-        queryParams: sortObject(queryParams),
-        // Only include certain headers that affect caching
-        relevantHeaders: {
-            'accept': headers.accept,
-            'accept-encoding': headers['accept-encoding'],
-            'user-agent': headers['user-agent']
-        },
-        body: body || null
-    };
+// Generate cache key based on subdomain, URL, query parameters, headers, and method
+function generateCacheKey(subdomain, targetUrl, queryParams, headers, method) {
+    const crypto = require('crypto');
+    // Filter out hop-by-hop headers that shouldn't affect caching
+    const cacheableHeaders = { ...headers };
+    delete cacheableHeaders.connection;
+    delete cacheableHeaders.upgrade;
+    delete cacheableHeaders['transfer-encoding'];
+    delete cacheableHeaders['proxy-connection'];
+    delete cacheableHeaders['proxy-authenticate'];
+    delete cacheableHeaders['proxy-authorization'];
+    delete cacheableHeaders.te;
+    delete cacheableHeaders.trailers;
+    delete cacheableHeaders.host; // Host header changes based on proxy
+    delete cacheableHeaders['x-forwarded-for'];
+    delete cacheableHeaders['x-forwarded-proto'];
+    delete cacheableHeaders['x-forwarded-port'];
     
-    const keyString = JSON.stringify(keyData);
-    return crypto.createHash('sha256').update(keyString).digest('hex');
+    const keyData = `${subdomain}:${method}:${targetUrl}:${JSON.stringify(queryParams)}:${JSON.stringify(cacheableHeaders)}`;
+    return crypto.createHash('sha256').update(keyData).digest('hex');
 }
 
-/**
- * Sort object keys for consistent cache key generation
- */
-function sortObject(obj) {
-    if (!obj) return obj;
-    const sorted = {};
-    Object.keys(obj).sort().forEach(key => {
-        sorted[key] = obj[key];
-    });
-    return sorted;
-}
-
-/**
- * Get cached response from DynamoDB and S3
- */
+// Get cached response
 async function getCachedResponse(cacheKey) {
     try {
-        // Check DynamoDB for cache metadata
         const params = {
             TableName: DYNAMODB_TABLE_NAME,
-            Key: { cache_key: cacheKey }
+            Key: { id: cacheKey }
         };
         
         const result = await dynamodb.get(params).promise();
         
-        if (!result.Item) {
-            console.log('No cache entry found in DynamoDB');
-            return null;
+        if (result.Item && result.Item.expiresAt > Date.now()) {
+            console.log('✅ Cache hit');
+            return result.Item.response;
         }
         
-        const cacheEntry = result.Item;
-        const now = Math.floor(Date.now() / 1000);
-        
-        // Check if cache entry is expired
-        if (cacheEntry.expires_at && cacheEntry.expires_at < now) {
-            console.log('Cache entry expired');
-            return null;
-        }
-        
-        // Get response body from S3 if it exists
-        let responseBody = cacheEntry.response_body;
-        if (cacheEntry.s3_key) {
-            console.log('Fetching response body from S3');
-            const s3Params = {
-                Bucket: S3_BUCKET_NAME,
-                Key: cacheEntry.s3_key
-            };
-            
-            const s3Result = await s3.getObject(s3Params).promise();
-            responseBody = s3Result.Body.toString();
-        }
-        
-        return {
-            statusCode: cacheEntry.status_code,
-            headers: cacheEntry.headers || {},
-            body: responseBody
-        };
-        
+        console.log('❌ Cache miss or expired');
+        return null;
     } catch (error) {
-        console.error('Error getting cached response:', error);
+        console.log('Error getting cached response:', error.message);
         return null;
     }
 }
 
-/**
- * Fetch response from upstream service
- */
-function fetchFromUpstream(method, path, queryParams, headers, body) {
+// Cache response
+async function cacheResponse(cacheKey, response, ttlSeconds) {
+    try {
+        const expiresAt = Date.now() + (ttlSeconds * 1000);
+        
+        const params = {
+            TableName: DYNAMODB_TABLE_NAME,
+            Item: {
+                id: cacheKey,
+                response,
+                expiresAt,
+                ttl: ttlSeconds
+            }
+        };
+        
+        await dynamodb.put(params).promise();
+        console.log('💾 Response cached');
+    } catch (error) {
+        console.log('Error caching response:', error.message);
+    }
+}
+
+// Fetch from target URL
+function fetchFromTarget(targetUrl, method, headers, body) {
     return new Promise((resolve, reject) => {
-        // Build upstream URL
-        const upstreamUrl = new URL(path, UPSTREAM_BASE_URL);
+        const parsedUrl = new URL(targetUrl);
+        const isHttps = parsedUrl.protocol === 'https:';
+        const httpModule = isHttps ? https : http;
         
-        // Add query parameters
-        if (queryParams) {
-            Object.keys(queryParams).forEach(key => {
-                upstreamUrl.searchParams.append(key, queryParams[key]);
-            });
-        }
-        
-        console.log(`🌐 Fetching from upstream: ${upstreamUrl.toString()}`);
-        
-        // Clean headers - remove hop-by-hop headers and undefined values
+        // Remove hop-by-hop headers
         const cleanHeaders = { ...headers };
         delete cleanHeaders.connection;
         delete cleanHeaders.upgrade;
+        delete cleanHeaders['transfer-encoding'];
+        delete cleanHeaders['proxy-connection'];
         delete cleanHeaders['proxy-authenticate'];
         delete cleanHeaders['proxy-authorization'];
         delete cleanHeaders.te;
         delete cleanHeaders.trailers;
-        delete cleanHeaders['transfer-encoding'];
-        cleanHeaders.host = upstreamUrl.host;
+        delete cleanHeaders.host; // Use the target host instead
+        
+        // Set the correct host header for the target
+        cleanHeaders.host = parsedUrl.host;
         
         const options = {
-            method,
-            headers: cleanHeaders
+            hostname: parsedUrl.hostname,
+            port: parsedUrl.port || (isHttps ? 443 : 80),
+            path: parsedUrl.pathname + parsedUrl.search,
+            method: method,
+            headers: cleanHeaders,
+            timeout: 30000, // 30 second timeout
+            rejectUnauthorized: true // Ensure SSL certificate validation
         };
         
-        const client = upstreamUrl.protocol === 'https:' ? https : http;
-        
-        const req = client.request(upstreamUrl, options, (res) => {
+        const req = httpModule.request(options, (res) => {
             let responseBody = '';
             
             res.on('data', (chunk) => {
@@ -205,23 +138,25 @@ function fetchFromUpstream(method, path, queryParams, headers, body) {
             });
             
             res.on('end', () => {
-                const response = {
+                resolve({
                     statusCode: res.statusCode,
                     headers: res.headers,
                     body: responseBody
-                };
-                
-                console.log(`✅ Upstream response: ${res.statusCode}`);
-                resolve(response);
+                });
             });
         });
         
         req.on('error', (error) => {
-            console.error('Upstream request error:', error);
+            console.error('Request error:', error);
             reject(error);
         });
         
-        // Send body if present
+        req.on('timeout', () => {
+            console.error('Request timeout');
+            req.destroy();
+            reject(new Error('Request timeout'));
+        });
+        
         if (body) {
             req.write(body);
         }
@@ -230,83 +165,103 @@ function fetchFromUpstream(method, path, queryParams, headers, body) {
     });
 }
 
-/**
- * Check if response is cacheable
- */
-function isCacheable(response) {
-    // Only cache successful responses
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-        return false;
-    }
-    
-    // Don't cache if explicitly told not to
-    const cacheControl = response.headers['cache-control'];
-    if (cacheControl && (cacheControl.includes('no-cache') || cacheControl.includes('no-store'))) {
-        return false;
-    }
-    
-    return true;
-}
-
-/**
- * Cache response in DynamoDB and S3
- */
-async function cacheResponse(cacheKey, response) {
+// Main handler
+exports.handler = async (event) => {
     try {
-        const now = Math.floor(Date.now() / 1000);
-        const expiresAt = now + CACHE_TTL_SECONDS;
+        console.log('🔍 Request:', JSON.stringify(event, null, 2));
         
-        let cacheEntry = {
-            cache_key: cacheKey,
-            status_code: response.statusCode,
-            headers: response.headers,
-            created_at: now,
-            expires_at: expiresAt
-        };
+        // Extract subdomain from Host header
+        const host = event.headers.Host || event.headers.host;
+        const subdomain = host ? host.split('.')[0] : 'default';
         
-        // Store large responses in S3, small ones in DynamoDB
-        const responseBody = response.body || '';
-        if (responseBody.length > 300 * 1024) { // 300KB threshold
-            console.log('Storing large response in S3');
-            const s3Key = `cache/${cacheKey}`;
-            
-            await s3.putObject({
-                Bucket: S3_BUCKET_NAME,
-                Key: s3Key,
-                Body: responseBody,
-                ContentType: 'application/octet-stream'
-            }).promise();
-            
-            cacheEntry.s3_key = s3Key;
-        } else {
-            cacheEntry.response_body = responseBody;
+        // Parse query parameters
+        const queryParams = event.queryStringParameters || {};
+        const targetUrl = queryParams.url;
+        const ttlString = queryParams.ttl;
+        
+        if (!targetUrl) {
+            return {
+                statusCode: 400,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With'
+                },
+                body: JSON.stringify({
+                    error: 'Missing required parameter: url',
+                    usage: 'https://{subdomain}.dejafoo.io?url={target_url}&ttl={duration}',
+                    examples: [
+                        'https://myapp.dejafoo.io?url=https://api.example.com/data&ttl=1h',
+                        'https://test.dejafoo.io?url=https://jsonplaceholder.typicode.com/todos/1&ttl=2d'
+                    ]
+                })
+            };
         }
         
-        // Store in DynamoDB
-        await dynamodb.put({
-            TableName: DYNAMODB_TABLE_NAME,
-            Item: cacheEntry
-        }).promise();
+        // Parse TTL
+        const ttlSeconds = parseTTL(ttlString);
+        console.log(`⏰ TTL: ${ttlString} = ${ttlSeconds} seconds`);
         
-        console.log('✅ Response cached successfully');
+        // Generate cache key
+        const cacheKey = generateCacheKey(subdomain, targetUrl, queryParams, event.headers, event.httpMethod);
+        console.log(`🔑 Cache key: ${cacheKey}`);
+        
+        // Check cache
+        const cachedResponse = await getCachedResponse(cacheKey);
+        if (cachedResponse) {
+            return {
+                statusCode: cachedResponse.statusCode,
+                headers: {
+                    ...cachedResponse.headers,
+                    'X-Cache': 'HIT',
+                    'X-Cache-Key': cacheKey,
+                    'X-Subdomain': subdomain
+                },
+                body: cachedResponse.body
+            };
+        }
+        
+        // Fetch from target
+        console.log(`🌐 Fetching from target: ${targetUrl}`);
+        const response = await fetchFromTarget(
+            targetUrl,
+            event.httpMethod,
+            event.headers,
+            event.body
+        );
+        
+        console.log(`✅ Target response: ${response.statusCode}`);
+        
+        // Cache the response
+        await cacheResponse(cacheKey, response, ttlSeconds);
+        
+        // Return response
+        return {
+            statusCode: response.statusCode,
+            headers: {
+                ...response.headers,
+                'X-Cache': 'MISS',
+                'X-Cache-Key': cacheKey,
+                'X-Subdomain': subdomain,
+                'X-Target-URL': targetUrl
+            },
+            body: response.body
+        };
         
     } catch (error) {
-        console.error('Error caching response:', error);
-        // Don't fail the request if caching fails
+        console.error('❌ Error:', error);
+        
+        return {
+            statusCode: 500,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            body: JSON.stringify({
+                error: 'Internal server error',
+                message: error.message
+            })
+        };
     }
-}
-
-/**
- * Format response for Lambda
- */
-function formatLambdaResponse(response) {
-    return {
-        statusCode: response.statusCode,
-        headers: {
-            'Content-Type': response.headers['content-type'] || 'application/json',
-            'X-Cache': response.headers['X-Cache'] || 'MISS',
-            ...response.headers
-        },
-        body: response.body || ''
-    };
-}
+};

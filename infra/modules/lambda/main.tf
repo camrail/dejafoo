@@ -88,20 +88,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
   })
 }
 
-# Lambda function URL
-resource "aws_lambda_function_url" "dejafoo_proxy_url" {
-  function_name      = aws_lambda_function.dejafoo_proxy.function_name
-  authorization_type = "NONE"
-  
-  cors {
-    allow_credentials = true
-    allow_origins     = ["*"]
-    allow_methods     = ["*"]
-    allow_headers     = ["*"]
-    expose_headers    = ["*"]
-    max_age          = 86400
-  }
-}
+# Lambda function URL removed - using API Gateway instead
 
 # CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "lambda_logs" {

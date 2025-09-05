@@ -1,220 +1,185 @@
-# 🚀 Dejafoo Managed Service Deployment Guide
+# Deployment Guide
 
-This guide will walk you through deploying your dejafoo HTTP proxy as a managed service on AWS Lambda.
+This guide walks you through deploying Dejafoo to a new AWS environment.
 
-## 📋 Prerequisites
+## Prerequisites
 
-### 1. AWS Account Setup
-- Create a new AWS account at [aws.amazon.com](https://aws.amazon.com)
-- Set up billing information (Lambda has a generous free tier)
-- Create an IAM user with programmatic access
+- AWS CLI configured with appropriate permissions
+- Terraform >= 1.0
+- Node.js >= 18
+- Domain name (optional, but recommended)
 
-### 2. Install Required Tools
+## Step 1: Configure Environment
 
-#### AWS CLI
-```bash
-# macOS
-brew install awscli
+1. **Copy the example configuration:**
+   ```bash
+   cp infra/terraform.tfvars.example infra/terraform.tfvars
+   ```
 
-# Or download from AWS
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-sudo ./aws/install
-```
+2. **Edit `infra/terraform.tfvars`:**
+   ```hcl
+   aws_region = "us-west-2"        # Your preferred AWS region
+   environment = "prod"            # Environment name (dev, staging, prod)
+   domain_name = "yourdomain.com"  # Your domain (optional)
+   ```
 
-#### Terraform
-```bash
-# macOS
-brew install terraform
+## Step 2: Deploy Infrastructure
 
-# Or download from HashiCorp
-# https://www.terraform.io/downloads.html
-```
+1. **Initialize Terraform:**
+   ```bash
+   cd infra
+   terraform init
+   ```
 
-#### Rust Cross-Compilation
-```bash
-# Add the Linux target for Lambda
-rustup target add x86_64-unknown-linux-gnu
+2. **Review the plan:**
+   ```bash
+   terraform plan
+   ```
 
-# Install cross-compilation tools (macOS)
-brew install FiloSottile/musl-cross/musl-cross
-```
+3. **Apply the configuration:**
+   ```bash
+   terraform apply
+   ```
 
-### 3. Configure AWS CLI
-```bash
-aws configure
-# Enter your AWS Access Key ID
-# Enter your AWS Secret Access Key  
-# Enter your default region (e.g., us-east-1)
-# Enter your default output format (json)
-```
+   This will create:
+   - Lambda function
+   - API Gateway
+   - DynamoDB table
+   - S3 bucket
+   - Route53 hosted zone (if domain provided)
+   - SSL certificate (if domain provided)
+   - IAM roles and policies
 
-## 🚀 Deployment Steps
+## Step 3: Deploy Lambda Code
 
-### Step 1: Clone and Setup
-```bash
-git clone <your-repo-url>
-cd dejafoo
-```
+1. **Install dependencies:**
+   ```bash
+   cd ..
+   npm install
+   ```
 
-### Step 2: Deploy to AWS
-```bash
-# Deploy to dev environment in us-east-1
-./scripts/deploy.sh dev us-east-1
+2. **Deploy the Lambda function:**
+   ```bash
+   ./deploy.sh
+   ```
 
-# Or deploy to production
-./scripts/deploy.sh prod us-west-2
-```
+## Step 4: Configure Custom Domain (Optional)
 
-### Step 3: Test Your Managed Service
-After deployment, you'll get a Lambda function URL. Test it:
+If you provided a domain name:
 
-```bash
-# Test with customer subdomain, API, and custom TTL
-curl -H "Host: abc.dejafoo.io" "https://your-lambda-url.lambda-url.us-east-1.on.aws/?url=https://jsonplaceholder.typicode.com/todos/1&ttl=7d"
+1. **Get the nameservers:**
+   ```bash
+   cd infra
+   terraform output nameservers
+   ```
 
-# Test with different customer and TTL
-curl -H "Host: xyz.dejafoo.io" "https://your-lambda-url.lambda-url.us-east-1.on.aws/?url=https://api.github.com/users/octocat&ttl=30m"
+2. **Update your domain registrar:**
+   - Go to your domain registrar's control panel
+   - Update nameservers to the values from step 1
+   - Wait for DNS propagation (5-60 minutes)
 
-# Each customer gets separate cache entries with their own TTL!
-```
+3. **Test the custom domain:**
+   ```bash
+   curl "https://api.yourdomain.com/get"
+   ```
 
-## 🏗️ What Gets Deployed
+## Step 5: Test the Deployment
 
-### AWS Resources Created:
-- **Lambda Function**: Runs your Rust proxy code
-- **DynamoDB Table**: Stores cache metadata and small responses
-- **S3 Bucket**: Stores large cached responses
-- **IAM Roles**: Permissions for Lambda to access DynamoDB and S3
-- **CloudWatch Logs**: Application logging
+1. **Test API Gateway directly:**
+   ```bash
+   curl "https://your-api-id.execute-api.region.amazonaws.com/prod/get"
+   ```
 
-### Infrastructure Costs (Estimated):
-- **Lambda**: Free tier includes 1M requests/month
-- **DynamoDB**: Free tier includes 25GB storage
-- **S3**: Free tier includes 5GB storage
-- **Total**: ~$0-5/month for light usage
+2. **Test with custom domain:**
+   ```bash
+   curl "https://api.yourdomain.com/get"
+   ```
 
-## 🔧 Configuration
+3. **Test local development:**
+   ```bash
+   node local-test.js
+   ```
 
-### Environment Variables
+## Environment Variables
+
 The Lambda function uses these environment variables:
-- `RUST_LOG`: Logging level (info, debug, etc.)
-- `DYNAMODB_TABLE_NAME`: DynamoDB table name (auto-set)
-- `S3_BUCKET_NAME`: S3 bucket name (auto-set)
 
-**Note**: No `UPSTREAM_BASE_URL` needed - customers provide their own URLs via `?url=` parameter
+- `DYNAMODB_TABLE_NAME`: DynamoDB table for cache metadata
+- `S3_BUCKET_NAME`: S3 bucket for cache storage  
+- `UPSTREAM_BASE_URL`: Default upstream service URL
+- `CACHE_TTL_SECONDS`: Cache time-to-live in seconds
 
-### Customer API URLs and TTL
-Customers provide their own API URLs and cache TTL via query parameters:
-```bash
-# Customer "abc" proxies their API with 7-day cache
-abc.dejafoo.io/?url=https://api.abc.com/users/1&ttl=7d
-
-# Customer "xyz" proxies their API with 30-minute cache
-xyz.dejafoo.io/?url=https://api.xyz.com/products/123&ttl=30m
-
-# Customer "company" proxies their API with 2-hour cache
-company.dejafoo.io/?url=https://api.company.com/data/456&ttl=2h
-```
-
-### TTL Format Support:
-- **Seconds**: `60s`, `120s`
-- **Minutes**: `30m`, `90m` 
-- **Hours**: `2h`, `12h`
-- **Days**: `7d`, `30d`
-- **Default**: 1 hour if no TTL specified
-
-## 🌐 Multi-Tenant Usage
-
-### Subdomain Support
-Your deployed proxy supports multi-tenant subdomains:
-
-```bash
-# Organization "abc"
-curl -H "Host: abc.dejafoo.io" "https://your-lambda-url/todos/1"
-
-# Organization "xyz" 
-curl -H "Host: xyz.dejafoo.io" "https://your-lambda-url/todos/1"
-
-# Each gets separate cache entries!
-```
-
-### Custom Domain (Optional)
-To use your own domain:
-1. Buy a domain (e.g., `dejafoo.io`)
-2. Set up Route 53 hosted zone
-3. Configure API Gateway custom domain
-4. Update DNS records
-
-## 📊 Monitoring
+## Monitoring
 
 ### CloudWatch Logs
-View logs in AWS Console:
-- Go to CloudWatch → Log Groups
-- Find `/aws/lambda/dejafoo-proxy-dev`
-
-### Metrics
-Monitor in CloudWatch:
-- Invocations
-- Duration
-- Errors
-- Throttles
-
-## 🔄 Updates
-
-To update your deployment:
 ```bash
-# Make your code changes
-git add .
-git commit -m "Update proxy logic"
+# View Lambda logs
+aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/dejafoo"
 
-# Redeploy
-./scripts/deploy.sh dev us-east-1
+# Get recent log events
+aws logs get-log-events --log-group-name "/aws/lambda/dejafoo-proxy-prod" --log-stream-name "latest"
 ```
 
-## 🧹 Cleanup
+### Performance Metrics
+- **Cache Hit Rate**: Monitor DynamoDB read/write operations
+- **Response Time**: Check CloudWatch Lambda metrics
+- **Error Rate**: Monitor Lambda error count
+
+## Troubleshooting
+
+### Common Issues
+
+1. **403 Forbidden on Custom Domain**
+   - Check DNS propagation: `nslookup api.yourdomain.com`
+   - Verify nameservers are updated
+   - Wait for SSL certificate validation
+
+2. **Lambda Timeout**
+   - Check upstream service availability
+   - Increase Lambda timeout in Terraform
+   - Review CloudWatch logs
+
+3. **Cache Not Working**
+   - Verify DynamoDB and S3 permissions
+   - Check AWS region configuration
+   - Review Lambda environment variables
+
+### Debug Commands
+
+```bash
+# Test API Gateway directly
+curl -v "https://your-api-id.execute-api.region.amazonaws.com/prod/get"
+
+# Check Lambda logs
+aws logs get-log-events --log-group-name "/aws/lambda/dejafoo-proxy-prod" --start-time $(date -d '1 hour ago' +%s)000
+
+# Test local development
+node local-test.js
+```
+
+## Cleanup
 
 To remove all resources:
+
 ```bash
 cd infra
 terraform destroy
 ```
 
-## 🆘 Troubleshooting
+**Warning**: This will permanently delete all resources including data in DynamoDB and S3.
 
-### Common Issues:
+## Security Notes
 
-1. **"AWS CLI not configured"**
-   ```bash
-   aws configure
-   ```
+- IAM roles have minimal required permissions
+- SSL/TLS encryption is enabled by default
+- S3 server-side encryption is enabled for cache storage
+- No hardcoded secrets or credentials
 
-2. **"Terraform not found"**
-   ```bash
-   brew install terraform
-   ```
+## Cost Optimization
 
-3. **"Cross-compilation failed"**
-   ```bash
-   rustup target add x86_64-unknown-linux-gnu
-   ```
+- Lambda charges only for actual execution time
+- DynamoDB on-demand billing scales with usage
+- S3 charges only for storage used
+- API Gateway charges per request
 
-4. **"Permission denied"**
-   - Check IAM user has Lambda, DynamoDB, S3 permissions
-   - Ensure AWS credentials are valid
-
-### Getting Help:
-- Check CloudWatch logs for runtime errors
-- Verify environment variables are set correctly
-- Test locally first with `USE_FILE_CACHE=1`
-
-## 🎯 Next Steps
-
-After successful deployment:
-1. **Test multi-tenant functionality** with different subdomains
-2. **Monitor performance** in CloudWatch
-3. **Set up custom domain** for production use
-4. **Configure alerts** for errors and high latency
-5. **Scale up** by increasing Lambda memory/timeout as needed
-
-Your dejafoo proxy is now running in the cloud! 🎉
+Estimated monthly cost for moderate usage: $5-20

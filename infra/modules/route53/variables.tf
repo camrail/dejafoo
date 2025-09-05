@@ -3,13 +3,13 @@ variable "domain_name" {
   type        = string
 }
 
-variable "lambda_function_url_domain" {
-  description = "Lambda Function URL domain name"
+variable "api_gateway_domain_name" {
+  description = "API Gateway CloudFront domain name"
   type        = string
 }
 
-variable "lambda_function_url_zone_id" {
-  description = "Lambda Function URL hosted zone ID"
+variable "api_gateway_zone_id" {
+  description = "API Gateway CloudFront hosted zone ID"
   type        = string
 }
 

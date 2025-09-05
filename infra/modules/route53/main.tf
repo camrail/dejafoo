@@ -1,3 +1,16 @@
+# Provider configuration moved to main.tf
+
+# Required providers for Route53 module
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 4.0"
+      configuration_aliases = [aws.us_east_1]
+    }
+  }
+}
+
 # Route53 hosted zone for dejafoo domain
 resource "aws_route53_zone" "dejafoo" {
   name = var.domain_name
@@ -5,8 +18,10 @@ resource "aws_route53_zone" "dejafoo" {
   tags = var.tags
 }
 
-# SSL Certificate for wildcard domain
+# SSL Certificate for wildcard domain (must be in us-east-1 for EDGE endpoints)
 resource "aws_acm_certificate" "dejafoo_wildcard" {
+  provider = aws.us_east_1
+  
   domain_name       = var.domain_name
   subject_alternative_names = ["*.${var.domain_name}"]
   validation_method = "DNS"
@@ -38,6 +53,8 @@ resource "aws_route53_record" "dejafoo_cert_validation" {
 
 # Certificate validation
 resource "aws_acm_certificate_validation" "dejafoo_wildcard" {
+  provider = aws.us_east_1
+  
   certificate_arn         = aws_acm_certificate.dejafoo_wildcard.arn
   validation_record_fqdns = [for record in aws_route53_record.dejafoo_cert_validation : record.fqdn]
 
@@ -46,95 +63,26 @@ resource "aws_acm_certificate_validation" "dejafoo_wildcard" {
   }
 }
 
-# Wildcard subdomain CNAME record (points to Lambda Function URL)
-# We'll add the DNS records manually after Lambda is created
-# since Terraform can't handle the dependency properly
+# Wildcard subdomain CNAME record (points to API Gateway CloudFront)
 resource "aws_route53_record" "dejafoo_wildcard" {
   zone_id = aws_route53_zone.dejafoo.zone_id
   name    = "*.${var.domain_name}"
   type    = "CNAME"
   ttl     = 300
-  records = [var.lambda_function_url_domain]
+  records = [var.api_gateway_domain_name]
 }
 
-# CloudFront distribution for HTTPS and better performance
-resource "aws_cloudfront_distribution" "dejafoo" {
-  count = 0
+# Apex domain A record (points to API Gateway CloudFront)
+resource "aws_route53_record" "dejafoo_main" {
+  zone_id = aws_route53_zone.dejafoo.zone_id
+  name    = var.domain_name
+  type    = "A"
   
-  origin {
-    domain_name = var.lambda_function_url_domain
-    origin_id   = "dejafoo-lambda"
-
-    custom_origin_config {
-      http_port              = 443
-      https_port             = 443
-      origin_protocol_policy = "https-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
-    }
+  alias {
+    name                   = var.api_gateway_domain_name
+    zone_id                = var.api_gateway_zone_id
+    evaluate_target_health = false
   }
-
-  enabled             = true
-  is_ipv6_enabled     = true
-  default_root_object = ""
-
-  aliases = [var.domain_name, "*.${var.domain_name}"]
-
-  default_cache_behavior {
-    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "dejafoo-lambda"
-
-    forwarded_values {
-      query_string = true
-      headers      = ["Host", "Authorization", "Content-Type", "X-Forwarded-For", "X-Forwarded-Proto"]
-      cookies {
-        forward = "none"
-      }
-    }
-
-    viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 0
-    max_ttl                = 0
-  }
-
-  # Cache behavior for API calls (no caching)
-  ordered_cache_behavior {
-    path_pattern     = "/api/*"
-    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "dejafoo-lambda"
-
-    forwarded_values {
-      query_string = true
-      headers      = ["*"]
-      cookies {
-        forward = "none"
-      }
-    }
-
-    viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 0
-    max_ttl                = 0
-  }
-
-  price_class = "PriceClass_100"
-
-  restrictions {
-    geo_restriction {
-      restriction_type = "none"
-    }
-  }
-
-  viewer_certificate {
-    acm_certificate_arn      = aws_acm_certificate_validation.dejafoo_wildcard.certificate_arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
-  }
-
-  tags = var.tags
 }
 
-# Update Route53 records to point to CloudFront
-# CloudFront-specific A records removed - using Lambda Function URLs directly
+# CloudFront distribution removed - using API Gateway with custom domain

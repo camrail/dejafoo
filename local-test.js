@@ -1,113 +1,130 @@
-// Local test server for the JavaScript Lambda function
 const http = require('http');
 const url = require('url');
 
-// Import our Lambda handler
+// Mock AWS services for local testing
+const mockDynamoDB = {
+    get: async (params) => {
+        console.log('🔍 DynamoDB GET:', params);
+        return { Item: null }; // Always cache miss for testing
+    },
+    put: async (params) => {
+        console.log('💾 DynamoDB PUT:', params);
+        return {};
+    }
+};
+
+const mockS3 = {
+    putObject: async (params) => {
+        console.log('📦 S3 PUT:', params);
+        return {};
+    },
+    getObject: async (params) => {
+        console.log('📦 S3 GET:', params);
+        return { Body: null };
+    }
+};
+
+// Mock AWS SDK
+const AWS = {
+    DynamoDB: {
+        DocumentClient: () => mockDynamoDB
+    },
+    S3: () => mockS3
+};
+
+// Set up environment
+process.env.DYNAMODB_TABLE_NAME = 'dejafoo-cache-local';
+process.env.S3_BUCKET_NAME = 'dejafoo-cache-local';
+process.env.CACHE_TTL_SECONDS = '3600';
+
+// Load the handler
 const { handler } = require('./index.js');
+
+// Override AWS SDK
+require.cache[require.resolve('aws-sdk')] = {
+    exports: AWS
+};
 
 const PORT = 3001;
 
-// Mock AWS SDK for local testing
-const AWS = require('aws-sdk');
-
-// Mock DynamoDB DocumentClient
-AWS.DynamoDB.DocumentClient = class {
-    get(params) {
-        console.log('📋 Mock DynamoDB get:', params);
-        return {
-            promise: () => Promise.resolve({ Item: null }) // Always return cache miss for testing
-        };
-    }
-    
-    put(params) {
-        console.log('💾 Mock DynamoDB put:', params);
-        return {
-            promise: () => Promise.resolve({})
-        };
-    }
-};
-
-// Mock S3
-AWS.S3 = class {
-    getObject(params) {
-        console.log('📋 Mock S3 getObject:', params);
-        return {
-            promise: () => Promise.resolve({ Body: 'mock data' })
-        };
-    }
-    
-    putObject(params) {
-        console.log('💾 Mock S3 putObject:', params);
-        return {
-            promise: () => Promise.resolve({})
-        };
-    }
-};
-
-// Set environment variables for local testing
-process.env.DYNAMODB_TABLE_NAME = 'dejafoo-cache-local';
-process.env.S3_BUCKET_NAME = 'dejafoo-cache-local';
-process.env.UPSTREAM_BASE_URL = 'https://httpbin.org';
-process.env.CACHE_TTL_SECONDS = '3600';
-process.env.NODE_ENV = 'development';
-
-console.log('🚀 Starting local test server...');
-console.log('Environment:', {
-    DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME,
-    S3_BUCKET_NAME: process.env.S3_BUCKET_NAME,
-    UPSTREAM_BASE_URL: process.env.UPSTREAM_BASE_URL,
-    CACHE_TTL_SECONDS: process.env.CACHE_TTL_SECONDS
-});
-
 const server = http.createServer(async (req, res) => {
-    console.log(`\n📨 ${req.method} ${req.url}`);
-    
     try {
-        // Convert Node.js request to Lambda event format
+        console.log(`📨 ${req.method} ${req.url}`);
+        
+        // Parse URL
         const parsedUrl = url.parse(req.url, true);
+        const queryParams = parsedUrl.query;
+        
+        // Build API Gateway event
         const event = {
             httpMethod: req.method,
             path: parsedUrl.pathname,
-            queryStringParameters: parsedUrl.query,
+            queryStringParameters: queryParams,
             headers: req.headers,
-            body: null // For simplicity, not handling POST body in this test
+            body: null
         };
         
-        // Call Lambda handler
-        const response = await handler(event);
-        
-        // Convert Lambda response to Node.js response
-        res.statusCode = response.statusCode;
-        
-        if (response.headers) {
-            Object.keys(response.headers).forEach(key => {
-                res.setHeader(key, response.headers[key]);
+        // Handle body for POST/PUT requests
+        if (req.method === 'POST' || req.method === 'PUT') {
+            let body = '';
+            req.on('data', chunk => body += chunk);
+            req.on('end', () => {
+                event.body = body;
+                processRequest(event, res);
             });
+        } else {
+            processRequest(event, res);
         }
         
-        res.end(response.body);
-        
     } catch (error) {
-        console.error('❌ Error:', error);
-        res.statusCode = 500;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({
-            error: 'Internal Server Error',
-            message: error.message
-        }));
+        console.error('❌ Server error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Internal server error' }));
     }
 });
 
+async function processRequest(event, res) {
+    try {
+        const result = await handler(event);
+        
+        // Set headers
+        Object.keys(result.headers || {}).forEach(key => {
+            res.setHeader(key, result.headers[key]);
+        });
+        
+        // Set status and body
+        res.writeHead(result.statusCode || 200);
+        res.end(result.body || '');
+        
+    } catch (error) {
+        console.error('❌ Handler error:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Handler error', message: error.message }));
+    }
+}
+
 server.listen(PORT, () => {
+    console.log('🚀 Dejafoo Proxy Service starting...');
+    console.log('Environment:', {
+        DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME,
+        S3_BUCKET_NAME: process.env.S3_BUCKET_NAME,
+        CACHE_TTL_SECONDS: process.env.CACHE_TTL_SECONDS
+    });
+    console.log('🚀 Starting local test server...');
+    console.log('Environment:', {
+        DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME,
+        S3_BUCKET_NAME: process.env.S3_BUCKET_NAME,
+        CACHE_TTL_SECONDS: process.env.CACHE_TTL_SECONDS
+    });
     console.log(`✅ Local test server running at http://localhost:${PORT}`);
-    console.log('\n🧪 Test commands:');
-    console.log(`   curl "http://localhost:${PORT}/get?test=123"`);
-    console.log(`   curl "http://localhost:${PORT}/json" -H "Accept: application/json"`);
-    console.log(`   curl "http://localhost:${PORT}/status/200"`);
+    console.log('🧪 Test commands:');
+    console.log(`   curl "http://localhost:${PORT}?url=https://jsonplaceholder.typicode.com/todos/1&ttl=2d"`);
+    console.log(`   curl "http://localhost:${PORT}?url=https://httpbin.org/json&ttl=1h"`);
+    console.log(`   curl "http://localhost:${PORT}?url=https://api.github.com/users/octocat&ttl=30m"`);
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGINT', () => {
     console.log('\n🛑 Shutting down local test server...');
     server.close(() => {
         console.log('✅ Server closed');

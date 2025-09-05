@@ -19,6 +19,11 @@ provider "aws" {
   region = var.aws_region
 }
 
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+}
+
 # Local values
 locals {
   project_name = "dejafoo"
@@ -88,16 +93,33 @@ module "lambda" {
   lambda_zip_path     = var.lambda_zip_path
 }
 
+# API Gateway module
+module "apigateway" {
+  source = "./modules/apigateway"
+  
+  project_name        = local.project_name
+  environment         = var.environment
+  tags                = local.common_tags
+  
+  lambda_function_name = module.lambda.function_name
+  lambda_invoke_arn    = module.lambda.invoke_arn
+  domain_name          = var.domain_name
+  certificate_arn      = var.domain_name != "" ? module.route53[0].certificate_arn : ""
+}
 
 # Route53 module (only if domain_name is provided)
 module "route53" {
   count  = var.domain_name != "" ? 1 : 0
   source = "./modules/route53"
   
-  domain_name                  = var.domain_name
-  lambda_function_url_domain   = module.lambda.function_url_domain
-  lambda_function_url_zone_id  = module.lambda.function_url_zone_id
-  tags                        = local.common_tags
+  domain_name                = var.domain_name
+  api_gateway_domain_name    = module.apigateway.cloudfront_domain_name
+  api_gateway_zone_id        = module.apigateway.cloudfront_zone_id
+  tags                       = local.common_tags
+  
+  providers = {
+    aws.us_east_1 = aws.us_east_1
+  }
 }
 
 # Outputs
@@ -111,9 +133,9 @@ output "s3_bucket_name" {
   value       = module.s3.bucket_name
 }
 
-output "lambda_function_url" {
-  description = "Lambda function URL"
-  value       = module.lambda.function_url
+output "api_gateway_url" {
+  description = "API Gateway URL"
+  value       = module.apigateway.api_gateway_url
 }
 
 output "lambda_function_name" {

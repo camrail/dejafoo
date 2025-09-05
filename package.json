@@ -1,18 +1,29 @@
 {
-  "name": "dejafoo-proxy",
+  "name": "dejafoo",
   "version": "1.0.0",
-  "description": "A caching HTTP proxy service for Lambda",
+  "description": "High-performance HTTP proxy service with intelligent caching built on AWS Lambda",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "deploy": "zip -r dejafoo-lambda.zip index.js package.json node_modules/",
-    "deploy-code-only": "zip dejafoo-lambda.zip index.js package.json"
+    "start": "node local-test.js",
+    "deploy": "./deploy.sh",
+    "test": "node test-quick.js",
+    "test:full": "node test-production.js",
+    "test:headers": "node test-headers.js",
+    "test:cache": "node test-cache-hit-miss.js",
+    "test:local": "node local-test.js",
+    "build": "zip -r dejafoo-lambda.zip index.js package.json node_modules/",
+    "clean": "rm -f dejafoo-lambda.zip"
   },
   "keywords": [
     "proxy",
     "cache",
     "lambda",
-    "aws"
+    "aws",
+    "http",
+    "serverless",
+    "api-gateway",
+    "dynamodb",
+    "s3"
   ],
   "author": "dejafoo",
   "license": "MIT",
@@ -21,5 +32,13 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/camrail/dejafoo.git"
+  },
+  "bugs": {
+    "url": "https://github.com/camrail/dejafoo/issues"
+  },
+  "homepage": "https://github.com/camrail/dejafoo#readme"
 }
