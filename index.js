@@ -2,7 +2,6 @@ const AWS = require('aws-sdk');
 const http = require('http');
 const https = require('https');
 const url = require('url');
-const zlib = require('zlib');
 
 // Initialize AWS services
 const dynamodb = new AWS.DynamoDB.DocumentClient();
@@ -126,7 +125,10 @@ function fetchFromTarget(targetUrl, method, headers, body) {
             port: parsedUrl.port || (isHttps ? 443 : 80),
             path: parsedUrl.pathname + parsedUrl.search,
             method: method,
-            headers: cleanHeaders,
+            headers: {
+                ...cleanHeaders,
+                'Accept-Encoding': 'identity' // Request uncompressed response
+            },
             timeout: 30000, // 30 second timeout
             rejectUnauthorized: true // Ensure SSL certificate validation
         };
@@ -134,60 +136,28 @@ function fetchFromTarget(targetUrl, method, headers, body) {
         const req = httpModule.request(options, (res) => {
             let responseBody = '';
             
-            // Check if response is compressed and handle accordingly
-            const contentEncoding = res.headers['content-encoding'];
-            let stream = res;
-            
-            if (contentEncoding === 'gzip') {
-                stream = res.pipe(zlib.createGunzip());
-            } else if (contentEncoding === 'deflate') {
-                stream = res.pipe(zlib.createInflate());
-            } else if (contentEncoding === 'br') {
-                stream = res.pipe(zlib.createBrotliDecompress());
-            }
-            
-            stream.on('data', (chunk) => {
+            res.on('data', (chunk) => {
                 responseBody += chunk;
             });
             
-            stream.on('end', () => {
-                // Remove compression headers from the response we return
+            res.on('end', () => {
+                // Clean up headers - remove compression and hop-by-hop headers
                 const cleanHeaders = { ...res.headers };
                 delete cleanHeaders['content-encoding'];
                 delete cleanHeaders['content-length'];
+                delete cleanHeaders['transfer-encoding'];
+                delete cleanHeaders['connection'];
+                delete cleanHeaders['upgrade'];
+                delete cleanHeaders['keep-alive'];
+                delete cleanHeaders['proxy-authenticate'];
+                delete cleanHeaders['proxy-authorization'];
+                delete cleanHeaders['te'];
+                delete cleanHeaders['trailers'];
                 
                 resolve({
                     statusCode: res.statusCode,
                     headers: cleanHeaders,
                     body: responseBody
-                });
-            });
-            
-            stream.on('error', (error) => {
-                console.error('Stream error:', error);
-                // If there's a stream error, try to read the original response
-                console.log('Attempting to read original response...');
-                let fallbackBody = '';
-                
-                res.on('data', (chunk) => {
-                    fallbackBody += chunk;
-                });
-                
-                res.on('end', () => {
-                    const cleanHeaders = { ...res.headers };
-                    delete cleanHeaders['content-encoding'];
-                    delete cleanHeaders['content-length'];
-                    
-                    resolve({
-                        statusCode: res.statusCode,
-                        headers: cleanHeaders,
-                        body: fallbackBody
-                    });
-                });
-                
-                res.on('error', (fallbackError) => {
-                    console.error('Fallback also failed:', fallbackError);
-                    reject(fallbackError);
                 });
             });
         });
