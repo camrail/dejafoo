@@ -2,6 +2,7 @@ const AWS = require('aws-sdk');
 const http = require('http');
 const https = require('https');
 const url = require('url');
+const zlib = require('zlib');
 
 // Initialize AWS services
 const dynamodb = new AWS.DynamoDB.DocumentClient();
@@ -133,15 +134,60 @@ function fetchFromTarget(targetUrl, method, headers, body) {
         const req = httpModule.request(options, (res) => {
             let responseBody = '';
             
-            res.on('data', (chunk) => {
+            // Check if response is compressed and handle accordingly
+            const contentEncoding = res.headers['content-encoding'];
+            let stream = res;
+            
+            if (contentEncoding === 'gzip') {
+                stream = res.pipe(zlib.createGunzip());
+            } else if (contentEncoding === 'deflate') {
+                stream = res.pipe(zlib.createInflate());
+            } else if (contentEncoding === 'br') {
+                stream = res.pipe(zlib.createBrotliDecompress());
+            }
+            
+            stream.on('data', (chunk) => {
                 responseBody += chunk;
             });
             
-            res.on('end', () => {
+            stream.on('end', () => {
+                // Remove compression headers from the response we return
+                const cleanHeaders = { ...res.headers };
+                delete cleanHeaders['content-encoding'];
+                delete cleanHeaders['content-length'];
+                
                 resolve({
                     statusCode: res.statusCode,
-                    headers: res.headers,
+                    headers: cleanHeaders,
                     body: responseBody
+                });
+            });
+            
+            stream.on('error', (error) => {
+                console.error('Stream error:', error);
+                // If there's a stream error, try to read the original response
+                console.log('Attempting to read original response...');
+                let fallbackBody = '';
+                
+                res.on('data', (chunk) => {
+                    fallbackBody += chunk;
+                });
+                
+                res.on('end', () => {
+                    const cleanHeaders = { ...res.headers };
+                    delete cleanHeaders['content-encoding'];
+                    delete cleanHeaders['content-length'];
+                    
+                    resolve({
+                        statusCode: res.statusCode,
+                        headers: cleanHeaders,
+                        body: fallbackBody
+                    });
+                });
+                
+                res.on('error', (fallbackError) => {
+                    console.error('Fallback also failed:', fallbackError);
+                    reject(fallbackError);
                 });
             });
         });
@@ -203,8 +249,8 @@ exports.handler = async (event) => {
         const ttlSeconds = parseTTL(ttlString);
         console.log(`⏰ TTL: ${ttlString} = ${ttlSeconds} seconds`);
         
-        // Generate cache key
-        const cacheKey = generateCacheKey(subdomain, targetUrl, queryParams, event.headers, event.httpMethod);
+        // Generate cache key (only use targetUrl and headers, not our internal query params)
+        const cacheKey = generateCacheKey(subdomain, targetUrl, {}, event.headers, event.httpMethod);
         console.log(`🔑 Cache key: ${cacheKey}`);
         
         // Check cache
@@ -216,7 +262,10 @@ exports.handler = async (event) => {
                     ...cachedResponse.headers,
                     'X-Cache': 'HIT',
                     'X-Cache-Key': cacheKey,
-                    'X-Subdomain': subdomain
+                    'X-Subdomain': subdomain,
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With'
                 },
                 body: cachedResponse.body
             };
@@ -244,7 +293,10 @@ exports.handler = async (event) => {
                 'X-Cache': 'MISS',
                 'X-Cache-Key': cacheKey,
                 'X-Subdomain': subdomain,
-                'X-Target-URL': targetUrl
+                'X-Target-URL': targetUrl,
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With'
             },
             body: response.body
         };
