@@ -32,7 +32,7 @@ function parseTTL(ttlString) {
 }
 
 // Generate cache key based on subdomain, URL, query parameters, headers, and method
-function generateCacheKey(subdomain, targetUrl, queryParams, headers, method) {
+function generateCacheKey(subdomain, targetUrl, queryParams, headers, method, payload, ttl) {
     const crypto = require('crypto');
     // Filter out hop-by-hop headers that shouldn't affect caching
     const cacheableHeaders = { ...headers };
@@ -49,7 +49,26 @@ function generateCacheKey(subdomain, targetUrl, queryParams, headers, method) {
     delete cacheableHeaders['x-forwarded-proto'];
     delete cacheableHeaders['x-forwarded-port'];
     
-    const keyData = `${subdomain}:${method}:${targetUrl}:${JSON.stringify(queryParams)}:${JSON.stringify(cacheableHeaders)}`;
+    // Remove CloudFront-specific headers that change between requests (case-insensitive)
+    const cloudfrontHeaders = [
+        'cloudfront-forwarded-proto', 'CloudFront-Forwarded-Proto',
+        'cloudfront-is-desktop-viewer', 'CloudFront-Is-Desktop-Viewer',
+        'cloudfront-is-mobile-viewer', 'CloudFront-Is-Mobile-Viewer',
+        'cloudfront-is-smarttv-viewer', 'CloudFront-Is-SmartTV-Viewer',
+        'cloudfront-is-tablet-viewer', 'CloudFront-Is-Tablet-Viewer',
+        'cloudfront-viewer-asn', 'CloudFront-Viewer-ASN',
+        'cloudfront-viewer-country', 'CloudFront-Viewer-Country',
+        'x-amz-cf-id', 'X-Amz-Cf-Id',
+        'x-amzn-trace-id', 'X-Amzn-Trace-Id',
+        'via', 'Via'
+    ];
+    
+    cloudfrontHeaders.forEach(header => {
+        delete cacheableHeaders[header];
+    });
+    
+    // Cache key includes TTL to ensure different TTLs create different cache entries
+    const keyData = `${subdomain}:${method}:${targetUrl}:${JSON.stringify(queryParams)}:${payload || ''}:${ttl || ''}`;
     return crypto.createHash('sha256').update(keyData).digest('hex');
 }
 
@@ -58,7 +77,7 @@ async function getCachedResponse(cacheKey) {
     try {
         const params = {
             TableName: DYNAMODB_TABLE_NAME,
-            Key: { id: cacheKey }
+            Key: { cache_key: cacheKey }
         };
         
         const result = await dynamodb.get(params).promise();
@@ -84,7 +103,7 @@ async function cacheResponse(cacheKey, response, ttlSeconds) {
         const params = {
             TableName: DYNAMODB_TABLE_NAME,
             Item: {
-                id: cacheKey,
+                cache_key: cacheKey,
                 response,
                 expiresAt,
                 ttl: ttlSeconds
@@ -141,7 +160,7 @@ function fetchFromTarget(targetUrl, method, headers, body) {
             });
             
             res.on('end', () => {
-                // Clean up headers - remove compression and hop-by-hop headers
+                // Clean up headers - remove compression, hop-by-hop headers, and upstream cache control
                 const cleanHeaders = { ...res.headers };
                 delete cleanHeaders['content-encoding'];
                 delete cleanHeaders['content-length'];
@@ -153,6 +172,7 @@ function fetchFromTarget(targetUrl, method, headers, body) {
                 delete cleanHeaders['proxy-authorization'];
                 delete cleanHeaders['te'];
                 delete cleanHeaders['trailers'];
+                delete cleanHeaders['cache-control']; // Remove upstream cache-control to use our own
                 
                 resolve({
                     statusCode: res.statusCode,
@@ -219,8 +239,8 @@ exports.handler = async (event) => {
         const ttlSeconds = parseTTL(ttlString);
         console.log(`⏰ TTL: ${ttlString} = ${ttlSeconds} seconds`);
         
-        // Generate cache key (only use targetUrl and headers, not our internal query params)
-        const cacheKey = generateCacheKey(subdomain, targetUrl, {}, event.headers, event.httpMethod);
+        // Generate cache key (include TTL to ensure different TTLs create different cache entries)
+        const cacheKey = generateCacheKey(subdomain, targetUrl, {}, event.headers, event.httpMethod, event.body, ttlString);
         console.log(`🔑 Cache key: ${cacheKey}`);
         
         // Check cache
@@ -233,6 +253,7 @@ exports.handler = async (event) => {
                     'X-Cache': 'HIT',
                     'X-Cache-Key': cacheKey,
                     'X-Subdomain': subdomain,
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
                     'Access-Control-Allow-Origin': '*',
                     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
                     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With'
@@ -264,6 +285,7 @@ exports.handler = async (event) => {
                 'X-Cache-Key': cacheKey,
                 'X-Subdomain': subdomain,
                 'X-Target-URL': targetUrl,
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With'
