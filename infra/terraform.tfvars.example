@@ -19,5 +19,4 @@ github_repo_url = "https://github.com/camrail/dejafoo.git"
 # Domain name for Route53 (optional)
 domain_name = "dejafoo.io"
 
-# Path to the Lambda deployment package (auto-generated)
-lambda_zip_path = "lambda-deployment.zip"
+# Lambda deployment package is hardcoded to dejafoo-lambda.zip

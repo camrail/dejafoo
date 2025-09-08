@@ -4,8 +4,8 @@ resource "aws_lambda_function" "dejafoo_proxy" {
   role         = aws_iam_role.lambda_role.arn
   handler      = "index.handler"
   runtime      = "nodejs18.x"
-  filename     = var.lambda_zip_path
-  source_code_hash = filebase64sha256(var.lambda_zip_path)
+  filename     = "dejafoo-lambda.zip"
+  source_code_hash = filebase64sha256("dejafoo-lambda.zip")
   
   timeout = 30
   memory_size = 512

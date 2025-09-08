@@ -14,11 +14,7 @@ variable "tags" {
   default     = {}
 }
 
-variable "lambda_zip_path" {
-  description = "Path to the Lambda deployment package"
-  type        = string
-  default     = "lambda-deployment.zip"
-}
+# lambda_zip_path removed - Phase 2 doesn't create Lambda functions
 
 # No upstream_base_url needed for managed service
 
