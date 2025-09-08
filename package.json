@@ -4,15 +4,11 @@
   "description": "High-performance HTTP proxy service with intelligent caching built on AWS Lambda",
   "main": "index.js",
   "scripts": {
-    "start": "node tests/local-test.js",
+    "start": "node test-production.js",
     "deploy": "./deploy-code.sh",
     "deploy:code": "./deploy-code.sh",
     "deploy:infra": "cd infra && ./phase1.sh && echo 'Update nameservers, then run: ./phase2.sh'",
     "test": "node test-production.js",
-    "test:quick": "node tests/test-quick.js",
-    "test:headers": "node tests/test-headers.js",
-    "test:ttl": "node tests/test-ttl-updates.js",
-    "test:local": "node tests/local-test.js",
     "build": "zip -r dejafoo-lambda.zip index.js package.json node_modules/",
     "clean": "rm -f dejafoo-lambda.zip"
   },

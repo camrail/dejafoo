@@ -95,7 +95,7 @@ Dejafoo uses a **two-phase deployment strategy**:
 
 3. **Test local development:**
    ```bash
-   node tests/local-test.js
+   node test-production.js
    ```
 
 ## Ongoing Deployments
@@ -168,7 +168,7 @@ curl -v "https://your-api-id.execute-api.region.amazonaws.com/prod/get"
 aws logs get-log-events --log-group-name "/aws/lambda/dejafoo-proxy-prod" --start-time $(date -d '1 hour ago' +%s)000
 
 # Test local development
-node local-test.js
+node test-production.js
 ```
 
 ## Cleanup

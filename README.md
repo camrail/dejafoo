@@ -28,12 +28,6 @@ dejafoo/
 ├── package.json          # Node.js dependencies
 ├── deploy-code.sh        # Lambda code deployment script
 ├── test-production.js    # Comprehensive production test suite
-├── tests/                # Additional test files
-│   ├── local-test.js    # Local development server
-│   ├── test-quick.js    # Quick functionality tests
-│   ├── test-headers.js  # Header-based response testing
-│   ├── test-ttl-updates.js # TTL update functionality
-│   └── debug-cache-keys.js # Cache key debugging
 ├── infra/                # Terraform infrastructure
 │   ├── phase1.sh        # Phase 1 deployment script
 │   ├── phase2.sh        # Phase 2 deployment script
@@ -145,25 +139,12 @@ Success Rate: 94.4%
 
 ### Local Development
 
-Run the local test server:
+The comprehensive test suite includes local development testing:
 
 ```bash
-node tests/local-test.js
+# Run the full test suite (includes local testing)
+node test-production.js
 ```
-
-Test with curl:
-
-```bash
-curl "http://localhost:3001/get?test=123"
-curl "http://localhost:3001/json" -H "Accept: application/json"
-```
-
-### Additional Test Files
-
-- `tests/test-quick.js` - Quick functionality tests
-- `tests/test-headers.js` - Header-based response testing
-- `tests/test-ttl-updates.js` - TTL update functionality
-- `tests/debug-cache-keys.js` - Cache key debugging
 
 ## 🚀 Deployment Guide
 
