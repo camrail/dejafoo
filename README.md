@@ -38,12 +38,21 @@ dejafoo/
 │   ├── phase1.sh        # Phase 1 deployment script
 │   ├── phase2.sh        # Phase 2 deployment script
 │   ├── phase1/          # Phase 1 Terraform configuration
-│   ├── phase2/          # Phase 2 Terraform configuration
-│   └── modules/         # Terraform modules
-│       ├── apigateway/  # API Gateway configuration
-│       ├── lambda/      # Lambda function setup
-│       ├── s3/          # S3 bucket for cache
-│       └── route53/     # DNS and SSL certificates
+│   │   ├── core.tf      # Phase 1 main configuration
+│   │   ├── terraform.tfvars # Phase 1 variables
+│   │   └── modules/     # Phase 1 modules (no SSL)
+│   │       ├── apigateway/  # API Gateway without custom domain
+│   │       ├── lambda/      # Lambda function setup
+│   │       ├── s3/          # S3 bucket for cache
+│   │       └── route53/     # Route53 zone only (no SSL)
+│   └── phase2/          # Phase 2 Terraform configuration
+│       ├── dns.tf       # Phase 2 main configuration
+│       ├── dns.tfvars   # Phase 2 variables (auto-generated)
+│       └── modules/     # Phase 2 modules (with SSL)
+│           ├── apigateway/  # API Gateway with custom domain
+│           ├── lambda/      # Lambda function setup
+│           ├── s3/          # S3 bucket for cache
+│           └── route53/     # Route53 with SSL certificates
 └── README.md
 ```
 
@@ -335,6 +344,10 @@ node local-test.js
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🤖 For AI Agents
+
+This project includes an [AGENTS.md](AGENTS.md) file with detailed architecture information, deployment workflows, and troubleshooting guides specifically designed for AI coding agents.
 
 ## 🆘 Support
 
