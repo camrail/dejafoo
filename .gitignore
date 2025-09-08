@@ -24,6 +24,19 @@ infra/terraform.tfstate*
 infra/.terraform.tfstate.lock.info
 infra/secrets.tfvars
 
+# Terraform phase directories
+infra/phase1/.terraform/
+infra/phase1/.terraform.lock.hcl
+infra/phase1/terraform.tfstate*
+infra/phase1/.terraform.tfstate.lock.info
+infra/phase1/secrets.tfvars
+
+infra/phase2/.terraform/
+infra/phase2/.terraform.lock.hcl
+infra/phase2/terraform.tfstate*
+infra/phase2/.terraform.tfstate.lock.info
+infra/phase2/secrets.tfvars
+
 # IDE
 .vscode/
 .idea/

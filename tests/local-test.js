@@ -2,17 +2,6 @@ const http = require('http');
 const url = require('url');
 
 // Mock AWS services for local testing
-const mockDynamoDB = {
-    get: async (params) => {
-        console.log('🔍 DynamoDB GET:', params);
-        return { Item: null }; // Always cache miss for testing
-    },
-    put: async (params) => {
-        console.log('💾 DynamoDB PUT:', params);
-        return {};
-    }
-};
-
 const mockS3 = {
     putObject: async (params) => {
         console.log('📦 S3 PUT:', params);
@@ -20,20 +9,20 @@ const mockS3 = {
     },
     getObject: async (params) => {
         console.log('📦 S3 GET:', params);
-        return { Body: null };
+        throw new Error('NoSuchKey'); // Always cache miss for testing
+    },
+    deleteObject: async (params) => {
+        console.log('🗑️ S3 DELETE:', params);
+        return {};
     }
 };
 
 // Mock AWS SDK
 const AWS = {
-    DynamoDB: {
-        DocumentClient: () => mockDynamoDB
-    },
     S3: () => mockS3
 };
 
 // Set up environment
-process.env.DYNAMODB_TABLE_NAME = 'dejafoo-cache-local';
 process.env.S3_BUCKET_NAME = 'dejafoo-cache-local';
 process.env.CACHE_TTL_SECONDS = '3600';
 
@@ -106,13 +95,6 @@ async function processRequest(event, res) {
 server.listen(PORT, () => {
     console.log('🚀 Dejafoo Proxy Service starting...');
     console.log('Environment:', {
-        DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME,
-        S3_BUCKET_NAME: process.env.S3_BUCKET_NAME,
-        CACHE_TTL_SECONDS: process.env.CACHE_TTL_SECONDS
-    });
-    console.log('🚀 Starting local test server...');
-    console.log('Environment:', {
-        DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME,
         S3_BUCKET_NAME: process.env.S3_BUCKET_NAME,
         CACHE_TTL_SECONDS: process.env.CACHE_TTL_SECONDS
     });

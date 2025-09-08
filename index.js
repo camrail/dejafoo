@@ -4,11 +4,9 @@ const https = require('https');
 const url = require('url');
 
 // Initialize AWS services
-const dynamodb = new AWS.DynamoDB.DocumentClient();
 const s3 = new AWS.S3();
 
 // Environment variables
-const DYNAMODB_TABLE_NAME = process.env.DYNAMODB_TABLE_NAME || 'dejafoo-cache-prod';
 const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME || 'dejafoo-cache-prod';
 const DEFAULT_TTL_SECONDS = parseInt(process.env.CACHE_TTL_SECONDS || '3600');
 
@@ -67,51 +65,73 @@ function generateCacheKey(subdomain, targetUrl, queryParams, headers, method, pa
         delete cacheableHeaders[header];
     });
     
-    // Cache key includes TTL to ensure different TTLs create different cache entries
+    // Cache key includes only essential data - no headers to avoid CloudFront/proxy header variations
     const keyData = `${subdomain}:${method}:${targetUrl}:${JSON.stringify(queryParams)}:${payload || ''}:${ttl || ''}`;
     return crypto.createHash('sha256').update(keyData).digest('hex');
 }
 
-// Get cached response
+// Get cached response from S3
 async function getCachedResponse(cacheKey) {
     try {
+        const s3Key = `cache/${cacheKey}/response.json`;
         const params = {
-            TableName: DYNAMODB_TABLE_NAME,
-            Key: { cache_key: cacheKey }
+            Bucket: S3_BUCKET_NAME,
+            Key: s3Key
         };
         
-        const result = await dynamodb.get(params).promise();
+        const result = await s3.getObject(params).promise();
+        const cachedData = JSON.parse(result.Body.toString());
         
-        if (result.Item && result.Item.expiresAt > Date.now()) {
+        // Check if cache entry is still valid
+        if (cachedData.expiresAt > Date.now()) {
             console.log('✅ Cache hit');
-            return result.Item.response;
+            return {
+                statusCode: cachedData.statusCode,
+                headers: cachedData.headers,
+                body: cachedData.body,
+                expiresAt: cachedData.expiresAt,
+                ttl: cachedData.ttl
+            };
+        } else {
+            console.log('❌ Cache expired');
+            // Clean up expired cache entry
+            await s3.deleteObject(params).promise();
+            return null;
         }
-        
-        console.log('❌ Cache miss or expired');
-        return null;
     } catch (error) {
-        console.log('Error getting cached response:', error.message);
+        if (error.code === 'NoSuchKey') {
+            console.log('❌ Cache miss');
+        } else {
+            console.log('Error getting cached response:', error.message);
+        }
         return null;
     }
 }
 
-// Cache response
+// Cache response in S3
 async function cacheResponse(cacheKey, response, ttlSeconds) {
     try {
         const expiresAt = Date.now() + (ttlSeconds * 1000);
         
-        const params = {
-            TableName: DYNAMODB_TABLE_NAME,
-            Item: {
-                cache_key: cacheKey,
-                response,
-                expiresAt,
-                ttl: ttlSeconds
-            }
+        const cacheItem = {
+            statusCode: response.statusCode,
+            headers: response.headers,
+            body: response.body,
+            expiresAt,
+            ttl: ttlSeconds,
+            cachedAt: Date.now()
         };
         
-        await dynamodb.put(params).promise();
-        console.log('💾 Response cached');
+        const s3Key = `cache/${cacheKey}/response.json`;
+        const params = {
+            Bucket: S3_BUCKET_NAME,
+            Key: s3Key,
+            Body: JSON.stringify(cacheItem),
+            ContentType: 'application/json'
+        };
+        
+        await s3.putObject(params).promise();
+        console.log('💾 Response cached in S3');
     } catch (error) {
         console.log('Error caching response:', error.message);
     }
@@ -153,13 +173,14 @@ function fetchFromTarget(targetUrl, method, headers, body) {
         };
         
         const req = httpModule.request(options, (res) => {
-            let responseBody = '';
+            const chunks = [];
             
             res.on('data', (chunk) => {
-                responseBody += chunk;
+                chunks.push(chunk);
             });
             
             res.on('end', () => {
+                const responseBody = Buffer.concat(chunks).toString('utf8');
                 // Clean up headers - remove compression, hop-by-hop headers, and upstream cache control
                 const cleanHeaders = { ...res.headers };
                 delete cleanHeaders['content-encoding'];
@@ -246,14 +267,24 @@ exports.handler = async (event) => {
         // Check cache
         const cachedResponse = await getCachedResponse(cacheKey);
         if (cachedResponse) {
+            // Calculate time until expiry
+            const now = Date.now();
+            const expiresAt = cachedResponse.expiresAt || (now + (cachedResponse.ttl * 1000));
+            const timeUntilExpiry = Math.max(0, Math.floor((expiresAt - now) / 1000));
+            
             return {
                 statusCode: cachedResponse.statusCode,
                 headers: {
                     ...cachedResponse.headers,
                     'X-Cache': 'HIT',
                     'X-Cache-Key': cacheKey,
-                    'X-Subdomain': subdomain,
-                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'X-Cache-Expires-In': `${timeUntilExpiry}s`,
+                    'X-Response-Time': new Date().toISOString(),
+                    'Cache-Control': 'no-cache, no-store, must-revalidate, private, max-age=0, s-maxage=0',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    'Surrogate-Control': 'no-store',
+                    'X-Cache-Control': 'no-cache, no-store, must-revalidate',
                     'Access-Control-Allow-Origin': '*',
                     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
                     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With'
@@ -283,9 +314,14 @@ exports.handler = async (event) => {
                 ...response.headers,
                 'X-Cache': 'MISS',
                 'X-Cache-Key': cacheKey,
-                'X-Subdomain': subdomain,
+                'X-Cache-Expires-In': `${ttlSeconds}s`,
                 'X-Target-URL': targetUrl,
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'X-Response-Time': new Date().toISOString(),
+                'Cache-Control': 'no-cache, no-store, must-revalidate, private, max-age=0, s-maxage=0',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+                'Surrogate-Control': 'no-store',
+                'X-Cache-Control': 'no-cache, no-store, must-revalidate',
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With'

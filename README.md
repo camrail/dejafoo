@@ -5,18 +5,17 @@ A high-performance HTTP proxy service built with AWS Lambda, featuring intellige
 ## 🚀 Features
 
 - **HTTP Proxy**: Forward requests to any upstream service
-- **Intelligent Caching**: DynamoDB + S3 based caching with configurable TTL
+- **Intelligent Caching**: S3-based caching with configurable TTL
 - **Custom Domain Support**: API Gateway with Route53 integration
 - **SSL/TLS**: Automatic SSL certificate management
+- **Regional Endpoints**: Direct regional API Gateway (no CloudFront interference)
 - **High Performance**: Serverless architecture with sub-second response times
 - **Easy Deployment**: One-command infrastructure and code deployment
 
 ## 🏗️ Architecture
 
 ```
-Internet → Route53 → API Gateway → Lambda Function → Upstream Service
-                    ↓
-              DynamoDB (cache metadata)
+Internet → Route53 → API Gateway (Regional) → Lambda Function → Upstream Service
                     ↓
               S3 (cache storage)
 ```
@@ -27,15 +26,22 @@ Internet → Route53 → API Gateway → Lambda Function → Upstream Service
 dejafoo/
 ├── index.js              # Lambda function handler
 ├── package.json          # Node.js dependencies
-├── deploy.sh             # Lambda deployment script
-├── local-test.js         # Local development server
+├── deploy-code.sh        # Lambda code deployment script
+├── test-production.js    # Comprehensive production test suite
+├── tests/                # Additional test files
+│   ├── local-test.js    # Local development server
+│   ├── test-quick.js    # Quick functionality tests
+│   ├── test-headers.js  # Header-based response testing
+│   ├── test-ttl-updates.js # TTL update functionality
+│   └── debug-cache-keys.js # Cache key debugging
 ├── infra/                # Terraform infrastructure
-│   ├── main.tf          # Main Terraform configuration
-│   ├── terraform.tfvars # Environment variables
+│   ├── phase1.sh        # Phase 1 deployment script
+│   ├── phase2.sh        # Phase 2 deployment script
+│   ├── phase1/          # Phase 1 Terraform configuration
+│   ├── phase2/          # Phase 2 Terraform configuration
 │   └── modules/         # Terraform modules
 │       ├── apigateway/  # API Gateway configuration
 │       ├── lambda/      # Lambda function setup
-│       ├── dynamodb/    # DynamoDB table
 │       ├── s3/          # S3 bucket for cache
 │       └── route53/     # DNS and SSL certificates
 └── README.md
@@ -52,52 +58,88 @@ dejafoo/
 
 ### 1. Configure Environment
 
-Edit `infra/terraform.tfvars`:
+Edit `infra/phase1/terraform.tfvars`:
 
 ```hcl
-aws_region = "us-west-2"        # Your preferred AWS region
+aws_region = "eu-west-3"       # Your preferred AWS region
 environment = "prod"            # Environment name
-domain_name = "yourdomain.com"  # Your domain (optional)
+domain_name = "dejafoo.io"      # Your domain (optional)
 ```
 
-### 2. Deploy Infrastructure
+### 2. Deploy Infrastructure (Two-Phase)
 
+**Phase 1 - Core Infrastructure:**
 ```bash
 cd infra
-terraform init
-terraform plan
-terraform apply
+./phase1.sh
+```
+
+**Phase 2 - DNS & SSL (after updating nameservers):**
+```bash
+./phase2.sh
 ```
 
 ### 3. Deploy Lambda Code
 
 ```bash
-cd ..
-./deploy.sh
+# Deploy/update the Lambda function code
+./deploy-code.sh
 ```
 
 ### 4. Test the Service
 
 ```bash
-# Quick test suite
-npm test
-
-# Full battle test suite
-npm run test:full
+# Run comprehensive production test suite
+node test-production.js
 
 # Manual testing
-curl "https://api.yourdomain.com?url=https://jsonplaceholder.typicode.com/todos/1&ttl=30s"
+curl "https://api.dejafoo.io?url=https://jsonplaceholder.typicode.com/todos/1&ttl=30s"
 
 # Test API Gateway directly
 curl "https://your-api-id.execute-api.region.amazonaws.com/prod?url=https://jsonplaceholder.typicode.com/todos/1&ttl=30s"
 ```
 
-## 🧪 Local Development
+## 🧪 Testing
+
+### Production Test Suite
+
+The comprehensive test suite validates all aspects of the proxy service:
+
+```bash
+# Run the full production test suite
+node test-production.js
+```
+
+**Test Coverage:**
+- ✅ **Basic Functionality**: HTTP proxy and response handling
+- ✅ **Subdomain Isolation**: Ensures different subdomains don't leak data
+- ✅ **Cache Behavior**: Hit/miss patterns with TTL validation
+- ✅ **Header-based Caching**: Different headers create separate cache entries
+- ✅ **Method Support**: GET, POST, PUT, DELETE methods
+- ✅ **Data Leakage Prevention**: Sensitive data isolation between subdomains
+- ✅ **Error Handling**: Graceful handling of invalid URLs and errors
+- ✅ **Concurrent Requests**: Multiple simultaneous request handling
+- ✅ **TTL Functionality**: Cache expiration and refresh behavior
+- ✅ **S3 Integration**: Large payload handling and cache storage
+
+### Test Results Example
+
+```
+📊 PRODUCTION BATTLE TEST SUMMARY
+============================================================
+Total Tests: 36
+✅ Passed: 34
+❌ Failed: 2
+Success Rate: 94.4%
+============================================================
+```
+
+### Local Development
 
 Run the local test server:
 
 ```bash
-node local-test.js
+node tests/local-test.js
 ```
 
 Test with curl:
@@ -107,11 +149,79 @@ curl "http://localhost:3001/get?test=123"
 curl "http://localhost:3001/json" -H "Accept: application/json"
 ```
 
+### Additional Test Files
+
+- `tests/test-quick.js` - Quick functionality tests
+- `tests/test-headers.js` - Header-based response testing
+- `tests/test-ttl-updates.js` - TTL update functionality
+- `tests/debug-cache-keys.js` - Cache key debugging
+
+## 🚀 Deployment Guide
+
+### Deployment Types
+
+This project uses a **three-tier deployment strategy**:
+
+#### 1. **Infrastructure Deployment** (Terraform)
+- **Purpose**: Creates AWS resources (Lambda, API Gateway, S3, Route53, SSL certificates)
+- **Scripts**: `infra/phase1.sh` and `infra/phase2.sh`
+- **When to use**: Initial setup, infrastructure changes, scaling
+- **Frequency**: Rare (only when changing AWS resources)
+
+#### 2. **Code Deployment** (Lambda Function)
+- **Purpose**: Updates the Lambda function code with new application logic
+- **Script**: `./deploy.sh`
+- **When to use**: Code changes, bug fixes, feature updates
+- **Frequency**: Regular (every code change)
+
+#### 3. **DNS Configuration** (Manual)
+- **Purpose**: Updates domain nameservers to point to AWS
+- **Process**: Manual update at domain registrar
+- **When to use**: After Phase 1 infrastructure deployment
+- **Frequency**: One-time per domain
+
+### Deployment Workflow
+
+```bash
+# 1. Initial Infrastructure Setup (one-time)
+cd infra
+./phase1.sh                    # Deploy core infrastructure
+# Update nameservers at domain registrar
+./phase2.sh                    # Deploy DNS & SSL
+
+# 2. Regular Code Updates (frequent)
+cd ..
+./deploy-code.sh               # Deploy updated Lambda code
+
+# 3. Test Changes
+node test-production.js         # Validate deployment
+```
+
+### Infrastructure Deployment Details
+
+**Phase 1 (`./phase1.sh`):**
+- Creates Lambda function, API Gateway, S3 bucket
+- Sets up IAM roles and policies
+- Outputs nameservers for domain configuration
+
+**Phase 2 (`./phase2.sh`):**
+- Creates Route53 hosted zone and DNS records
+- Provisions SSL certificates
+- Configures API Gateway custom domain
+- **Requires**: Nameservers updated at domain registrar
+
+### Code Deployment Details
+
+**`./deploy-code.sh`:**
+- Packages `index.js`, `package.json`, and `node_modules`
+- Updates existing Lambda function code
+- Preserves all infrastructure and environment variables
+- **Requires**: Infrastructure already deployed
+
 ## ⚙️ Configuration
 
 ### Environment Variables
 
-- `DYNAMODB_TABLE_NAME`: DynamoDB table for cache metadata
 - `S3_BUCKET_NAME`: S3 bucket for cache storage
 - `UPSTREAM_BASE_URL`: Default upstream service URL
 - `CACHE_TTL_SECONDS`: Cache time-to-live in seconds
@@ -164,7 +274,7 @@ aws logs get-log-events --log-group-name "/aws/lambda/dejafoo-proxy-prod" --log-
 
 ### Performance Metrics
 
-- **Cache Hit Rate**: Monitor DynamoDB read/write operations
+- **Cache Hit Rate**: Monitor S3 read/write operations
 - **Response Time**: Check CloudWatch Lambda metrics
 - **Error Rate**: Monitor Lambda error count
 
@@ -183,7 +293,7 @@ aws logs get-log-events --log-group-name "/aws/lambda/dejafoo-proxy-prod" --log-
    - Review CloudWatch logs
 
 3. **Cache Not Working**
-   - Verify DynamoDB and S3 permissions
+   - Verify S3 permissions
    - Check AWS region configuration
    - Review Lambda environment variables
 
@@ -236,4 +346,4 @@ For issues and questions:
 
 ---
 
-**Built with ❤️ using AWS Lambda, API Gateway, DynamoDB, and S3**
+**Built with ❤️ using AWS Lambda, API Gateway, and S3**

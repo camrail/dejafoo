@@ -19,11 +19,6 @@ provider "aws" {
   region = var.aws_region
 }
 
-provider "aws" {
-  alias  = "us_east_1"
-  region = "us-east-1"
-}
-
 # Local values
 locals {
   project_name = "dejafoo"
@@ -50,7 +45,7 @@ variable "environment" {
 variable "lambda_zip_path" {
   description = "Path to the Lambda deployment package"
   type        = string
-  default     = "placeholder-lambda.zip"
+  default     = "dejafoo-lambda.zip"
 }
 
 variable "domain_name" {
@@ -65,14 +60,6 @@ data "aws_region" "current" {}
 
 
 # Include modules
-module "dynamodb" {
-  source = "./modules/dynamodb"
-  
-  project_name = local.project_name
-  environment  = var.environment
-  tags         = local.common_tags
-}
-
 module "s3" {
   source = "./modules/s3"
   
@@ -88,7 +75,6 @@ module "lambda" {
   environment  = var.environment
   tags         = local.common_tags
   
-  dynamodb_table_name = module.dynamodb.table_name
   s3_bucket_name      = module.s3.bucket_name
   lambda_zip_path     = var.lambda_zip_path
 }
@@ -113,21 +99,12 @@ module "route53" {
   source = "./modules/route53"
   
   domain_name                = var.domain_name
-  api_gateway_domain_name    = module.apigateway.cloudfront_domain_name
-  api_gateway_zone_id        = module.apigateway.cloudfront_zone_id
+  api_gateway_domain_name    = module.apigateway.regional_domain_name
+  api_gateway_zone_id        = module.apigateway.regional_zone_id
   tags                       = local.common_tags
-  
-  providers = {
-    aws.us_east_1 = aws.us_east_1
-  }
 }
 
 # Outputs
-output "dynamodb_table_name" {
-  description = "Name of the DynamoDB table"
-  value       = module.dynamodb.table_name
-}
-
 output "s3_bucket_name" {
   description = "Name of the S3 bucket"
   value       = module.s3.bucket_name

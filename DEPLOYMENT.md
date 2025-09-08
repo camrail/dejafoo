@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide walks you through deploying Dejafoo to a new AWS environment.
+This guide walks you through deploying Dejafoo using the two-phase infrastructure deployment strategy.
 
 ## Prerequisites
 
@@ -9,48 +9,66 @@ This guide walks you through deploying Dejafoo to a new AWS environment.
 - Node.js >= 18
 - Domain name (optional, but recommended)
 
+## Deployment Overview
+
+Dejafoo uses a **two-phase deployment strategy**:
+
+1. **Phase 1**: Core infrastructure (Lambda, API Gateway, S3)
+2. **Phase 2**: DNS and SSL configuration (after nameserver update)
+3. **Code Deployment**: Regular Lambda function updates
+
 ## Step 1: Configure Environment
 
-1. **Copy the example configuration:**
-   ```bash
-   cp infra/terraform.tfvars.example infra/terraform.tfvars
-   ```
-
-2. **Edit `infra/terraform.tfvars`:**
+1. **Edit `infra/phase1/terraform.tfvars`:**
    ```hcl
-   aws_region = "us-west-2"        # Your preferred AWS region
+   aws_region = "eu-west-3"       # Your preferred AWS region
    environment = "prod"            # Environment name (dev, staging, prod)
-   domain_name = "yourdomain.com"  # Your domain (optional)
+   domain_name = "dejafoo.io"      # Your domain (optional)
    ```
 
-## Step 2: Deploy Infrastructure
+## Step 2: Deploy Infrastructure - Phase 1
 
-1. **Initialize Terraform:**
+1. **Deploy core infrastructure:**
    ```bash
    cd infra
-   terraform init
+   ./phase1.sh
    ```
 
-2. **Review the plan:**
-   ```bash
-   terraform plan
-   ```
-
-3. **Apply the configuration:**
-   ```bash
-   terraform apply
-   ```
-
-   This will create:
+   This creates:
    - Lambda function
-   - API Gateway
-   - DynamoDB table
-   - S3 bucket
-   - Route53 hosted zone (if domain provided)
-   - SSL certificate (if domain provided)
+   - API Gateway (Regional endpoints)
+   - S3 bucket for caching
    - IAM roles and policies
+   - Route53 hosted zone (if domain provided)
 
-## Step 3: Deploy Lambda Code
+2. **Note the nameservers:**
+   The script will output nameservers that you need to update at your domain registrar.
+
+## Step 3: Configure Domain Nameservers
+
+1. **Update nameservers at your domain registrar:**
+   - Go to your domain registrar's control panel
+   - Update nameservers to the values from Phase 1
+   - Wait for DNS propagation (5-60 minutes)
+
+2. **Verify nameserver update:**
+   ```bash
+   nslookup -type=NS dejafoo.io
+   ```
+
+## Step 4: Deploy Infrastructure - Phase 2
+
+1. **Deploy DNS and SSL:**
+   ```bash
+   ./phase2.sh
+   ```
+
+   This creates:
+   - DNS records (A, CNAME)
+   - SSL certificate
+   - API Gateway custom domain configuration
+
+## Step 5: Deploy Lambda Code
 
 1. **Install dependencies:**
    ```bash
@@ -60,51 +78,47 @@ This guide walks you through deploying Dejafoo to a new AWS environment.
 
 2. **Deploy the Lambda function:**
    ```bash
-   ./deploy.sh
+   ./deploy-code.sh
    ```
 
-## Step 4: Configure Custom Domain (Optional)
+## Step 6: Test the Deployment
 
-If you provided a domain name:
-
-1. **Get the nameservers:**
+1. **Run comprehensive tests:**
    ```bash
-   cd infra
-   terraform output nameservers
-   ```
-
-2. **Update your domain registrar:**
-   - Go to your domain registrar's control panel
-   - Update nameservers to the values from step 1
-   - Wait for DNS propagation (5-60 minutes)
-
-3. **Test the custom domain:**
-   ```bash
-   curl "https://api.yourdomain.com/get"
-   ```
-
-## Step 5: Test the Deployment
-
-1. **Test API Gateway directly:**
-   ```bash
-   curl "https://your-api-id.execute-api.region.amazonaws.com/prod/get"
+   node test-production.js
    ```
 
 2. **Test with custom domain:**
    ```bash
-   curl "https://api.yourdomain.com/get"
+   curl "https://api.dejafoo.io?url=https://jsonplaceholder.typicode.com/todos/1&ttl=30s"
    ```
 
 3. **Test local development:**
    ```bash
-   node local-test.js
+   node tests/local-test.js
    ```
+
+## Ongoing Deployments
+
+### Code Updates (Frequent)
+```bash
+# After making code changes
+./deploy-code.sh
+node test-production.js
+```
+
+### Infrastructure Updates (Rare)
+```bash
+# Only when changing AWS resources
+cd infra
+./phase1.sh    # If core infrastructure changes
+./phase2.sh    # If DNS/SSL changes
+```
 
 ## Environment Variables
 
 The Lambda function uses these environment variables:
 
-- `DYNAMODB_TABLE_NAME`: DynamoDB table for cache metadata
 - `S3_BUCKET_NAME`: S3 bucket for cache storage  
 - `UPSTREAM_BASE_URL`: Default upstream service URL
 - `CACHE_TTL_SECONDS`: Cache time-to-live in seconds
@@ -121,7 +135,7 @@ aws logs get-log-events --log-group-name "/aws/lambda/dejafoo-proxy-prod" --log-
 ```
 
 ### Performance Metrics
-- **Cache Hit Rate**: Monitor DynamoDB read/write operations
+- **Cache Hit Rate**: Monitor S3 read/write operations
 - **Response Time**: Check CloudWatch Lambda metrics
 - **Error Rate**: Monitor Lambda error count
 
@@ -140,7 +154,7 @@ aws logs get-log-events --log-group-name "/aws/lambda/dejafoo-proxy-prod" --log-
    - Review CloudWatch logs
 
 3. **Cache Not Working**
-   - Verify DynamoDB and S3 permissions
+   - Verify S3 permissions
    - Check AWS region configuration
    - Review Lambda environment variables
 
@@ -166,7 +180,16 @@ cd infra
 terraform destroy
 ```
 
-**Warning**: This will permanently delete all resources including data in DynamoDB and S3.
+**Warning**: This will permanently delete all resources including data in S3.
+
+## Regional Endpoints
+
+This deployment uses **regional API Gateway endpoints** instead of edge-optimized endpoints. This means:
+
+- **No CloudFront**: Requests go directly to your specified region (eu-west-3)
+- **Simplified Caching**: Your custom S3-based caching works without CloudFront interference
+- **Lower Latency**: For users in your region, requests are faster
+- **Simpler Architecture**: Fewer moving parts, easier to debug
 
 ## Security Notes
 
@@ -178,7 +201,6 @@ terraform destroy
 ## Cost Optimization
 
 - Lambda charges only for actual execution time
-- DynamoDB on-demand billing scales with usage
 - S3 charges only for storage used
 - API Gateway charges per request
 

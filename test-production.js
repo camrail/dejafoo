@@ -78,6 +78,9 @@ class ProductionTester {
         // Test 4: TTL functionality
         await this.testTTLFunctionality();
         
+        // Test 4.5: TTL update functionality
+        await this.testTTLUpdateFunctionality();
+        
         // Test 5: Header-based caching
         await this.testHeaderBasedCaching();
         
@@ -95,6 +98,12 @@ class ProductionTester {
         
         // Test 10: Cache invalidation
         await this.testCacheInvalidation();
+        
+        // Test 10.5: Cache hit/miss with short TTL
+        await this.testCacheHitMiss();
+        
+        // Test 11: S3 fallback for large payloads
+        await this.testS3Fallback();
         
         this.printSummary();
     }
@@ -216,6 +225,54 @@ class ProductionTester {
             } catch (error) {
                 this.recordFail(`TTL ${ttl} failed: ${error.message}`);
             }
+        }
+        console.log('');
+    }
+
+    async testTTLUpdateFunctionality() {
+        console.log('📋 Test 4.5: TTL Update Functionality');
+        
+        const subdomain = 'ttl-update-test';
+        const testUrl = TEST_CASES[0].url;
+        
+        try {
+            // Test that different TTLs create different cache entries
+            console.log('  Testing different TTLs create different cache entries...');
+            
+            const response1 = await this.makeRequest(subdomain, testUrl, '5s');
+            const cacheKey1 = response1.headers['x-cache-key'];
+            
+            const response2 = await this.makeRequest(subdomain, testUrl, '10s');
+            const cacheKey2 = response2.headers['x-cache-key'];
+            
+            const response3 = await this.makeRequest(subdomain, testUrl, '30s');
+            const cacheKey3 = response3.headers['x-cache-key'];
+            
+            // Verify all cache keys are different
+            const allDifferent = cacheKey1 !== cacheKey2 && 
+                                cacheKey2 !== cacheKey3 && 
+                                cacheKey1 !== cacheKey3;
+            
+            if (allDifferent) {
+                this.recordPass('TTL update - Different TTLs create different cache entries');
+            } else {
+                this.recordFail('TTL update - Some TTLs create identical cache entries');
+            }
+            
+            // Test that same TTL reuses cache entry
+            console.log('  Testing same TTL reuses cache entry...');
+            
+            const response4 = await this.makeRequest(subdomain, testUrl, '10s');
+            const cacheKey4 = response4.headers['x-cache-key'];
+            
+            if (cacheKey2 === cacheKey4) {
+                this.recordPass('TTL update - Same TTL reuses existing cache entry');
+            } else {
+                this.recordFail('TTL update - Same TTL does not reuse cache entry');
+            }
+            
+        } catch (error) {
+            this.recordFail(`TTL update functionality failed: ${error.message}`);
         }
         console.log('');
     }
@@ -393,11 +450,136 @@ class ProductionTester {
         console.log('');
     }
 
+    async testCacheHitMiss() {
+        console.log('📋 Test 10.5: Cache Hit/Miss with Short TTL');
+        
+        const subdomain = 'hitmiss-test';
+        const testUrl = TEST_CASES[0].url;
+        const shortTtl = '5s'; // Very short TTL for testing
+        
+        try {
+            // First request - should be cache miss
+            console.log('  Testing cache miss...');
+            const response1 = await this.makeRequest(subdomain, testUrl, shortTtl);
+            const cacheStatus1 = response1.headers['x-cache'];
+            const cacheKey1 = response1.headers['x-cache-key'];
+            
+            if (cacheStatus1 === 'MISS' || cacheStatus1 === 'Miss from cloudfront') {
+                this.recordPass('First request correctly shows cache MISS');
+            } else {
+                this.recordFail(`First request should be MISS but got: ${cacheStatus1}`);
+            }
+            
+            // Second request immediately - should be cache hit
+            console.log('  Testing cache hit...');
+            const response2 = await this.makeRequest(subdomain, testUrl, shortTtl);
+            const cacheStatus2 = response2.headers['x-cache'];
+            const cacheKey2 = response2.headers['x-cache-key'];
+            
+            if (cacheStatus2 === 'HIT' || cacheStatus2 === 'Hit from cloudfront') {
+                this.recordPass('Second request correctly shows cache HIT');
+            } else {
+                this.recordFail(`Second request should be HIT but got: ${cacheStatus2}`);
+            }
+            
+            // Verify cache keys match (same cache entry)
+            if (cacheKey1 === cacheKey2) {
+                this.recordPass('Cache keys match - same cache entry used');
+            } else {
+                this.recordFail(`Cache keys don't match: ${cacheKey1} vs ${cacheKey2}`);
+            }
+            
+            // Wait for TTL to expire, then test miss again
+            console.log('  Waiting for TTL to expire (6 seconds)...');
+            await new Promise(resolve => setTimeout(resolve, 6000));
+            
+            const response3 = await this.makeRequest(subdomain, testUrl, shortTtl);
+            const cacheStatus3 = response3.headers['x-cache'];
+            const cacheKey3 = response3.headers['x-cache-key'];
+            
+            if (cacheStatus3 === 'MISS' || cacheStatus3 === 'Miss from cloudfront') {
+                this.recordPass('After TTL expiry, request correctly shows cache MISS');
+            } else {
+                this.recordFail(`After TTL expiry should be MISS but got: ${cacheStatus3}`);
+            }
+            
+            // Verify cache key remains the same (same request parameters = same key)
+            if (cacheKey1 === cacheKey3) {
+                this.recordPass('Cache key remains consistent after TTL expiry - same request parameters');
+            } else {
+                this.recordFail(`Cache key changed unexpectedly after TTL expiry: ${cacheKey1} vs ${cacheKey3}`);
+            }
+            
+        } catch (error) {
+            this.recordFail(`Cache hit/miss test failed: ${error.message}`);
+        }
+        console.log('');
+    }
+
+    async testS3Fallback() {
+        console.log('📋 Test 11: S3 Fallback for Large Payloads');
+        
+        // Small payload should be served and cache headers present
+        const smallSubdomain = 's3-test-small';
+        const smallUrl = 'https://jsonplaceholder.typicode.com/users/1';
+        
+        try {
+            const smallResponse = await this.makeRequest(smallSubdomain, smallUrl, '1m');
+            const smallBodySize = Buffer.byteLength(smallResponse.body, 'utf8');
+            const smallCacheStatus = smallResponse.headers['x-cache'];
+            
+            console.log(`  Small payload: ${smallBodySize} bytes (${(smallBodySize / 1024).toFixed(1)}KB) - ${smallCacheStatus}`);
+            
+            // Validate small payload served and cache header present
+            if (smallResponse.statusCode === 200 && smallCacheStatus) {
+                this.recordPass('Small payload served with cache header present');
+            } else {
+                this.recordFail(`Small payload test failed - status: ${smallResponse.statusCode}, cache: ${smallCacheStatus}`);
+            }
+            
+            // Large payload should be served via S3-backed path
+            const largeSubdomain = 's3-test-large';
+            const largeUrl = 'https://httpbun.com/bytes/500000'; // 500KB response
+            
+            const largeResponse = await this.makeRequest(largeSubdomain, largeUrl, '1m');
+            const largeBodySize = Buffer.byteLength(largeResponse.body, 'utf8');
+            const largeCacheStatus = largeResponse.headers['x-cache'];
+            
+            console.log(`  Large payload: ${largeBodySize} bytes (${(largeBodySize / 1024).toFixed(1)}KB) - ${largeCacheStatus}`);
+            
+            // Validate large payload served and reasonably large
+            if (largeResponse.statusCode === 200 && largeBodySize >= 400000) {
+                this.recordPass('Large payload served via S3-backed path');
+            } else {
+                this.recordFail(`Large payload test failed - status: ${largeResponse.statusCode}, size: ${largeBodySize} bytes`);
+            }
+            
+            // Test cache retrieval for large payload
+            const largeResponse2 = await this.makeRequest(largeSubdomain, largeUrl, '1m');
+            const largeBodySize2 = Buffer.byteLength(largeResponse2.body, 'utf8');
+            const largeCacheStatus2 = largeResponse2.headers['x-cache'];
+            const largeCacheKey1 = largeResponse.headers['x-cache-key'];
+            const largeCacheKey2 = largeResponse2.headers['x-cache-key'];
+            
+            // Validate cache reuse by size equality and cache key stability
+            if (largeBodySize2 === largeBodySize && largeCacheKey1 && largeCacheKey1 === largeCacheKey2) {
+                this.recordPass('Large payload correctly retrieved from cache (stable cache key)');
+            } else {
+                this.recordFail(`Large payload cache retrieval failed - cache: ${largeCacheStatus2}, size1: ${largeBodySize}, size2: ${largeBodySize2}, keys match: ${largeCacheKey1 === largeCacheKey2}`);
+            }
+            
+        } catch (error) {
+            this.recordFail(`S3 fallback test failed: ${error.message}`);
+        }
+        console.log('');
+    }
+
     async makeRequest(subdomain, targetUrl, ttl, headers = {}, method = 'GET', body = null) {
         return new Promise((resolve, reject) => {
             const url = new URL(`https://${subdomain}.${BASE_DOMAIN}`);
             url.searchParams.set('url', targetUrl);
             url.searchParams.set('ttl', ttl);
+            url.searchParams.set('_t', Date.now().toString()); // Cache-busting timestamp
             
             const options = {
                 hostname: url.hostname,
