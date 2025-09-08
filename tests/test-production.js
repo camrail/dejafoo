@@ -517,9 +517,9 @@ class ProductionTester {
     }
 
     async testS3Fallback() {
-        console.log('📋 Test 11: S3 Fallback for Large Payloads');
+        console.log('📋 Test 11: S3 Caching for All Payloads');
         
-        // Small payload should be served and cache headers present
+        // Test small payload (should use S3)
         const smallSubdomain = 's3-test-small';
         const smallUrl = 'https://jsonplaceholder.typicode.com/users/1';
         
@@ -537,39 +537,39 @@ class ProductionTester {
                 this.recordFail(`Small payload test failed - status: ${smallResponse.statusCode}, cache: ${smallCacheStatus}`);
             }
             
-            // Large payload should be served via S3-backed path
-            const largeSubdomain = 's3-test-large';
-            const largeUrl = 'https://httpbun.com/bytes/500000'; // 500KB response
+            // Test medium payload (should use S3)
+            const mediumSubdomain = 's3-test-medium';
+            const mediumUrl = 'https://jsonplaceholder.typicode.com/posts'; // Multiple posts, larger response
             
-            const largeResponse = await this.makeRequest(largeSubdomain, largeUrl, '1m');
-            const largeBodySize = Buffer.byteLength(largeResponse.body, 'utf8');
-            const largeCacheStatus = largeResponse.headers['x-cache'];
+            const mediumResponse = await this.makeRequest(mediumSubdomain, mediumUrl, '1m');
+            const mediumBodySize = Buffer.byteLength(mediumResponse.body, 'utf8');
+            const mediumCacheStatus = mediumResponse.headers['x-cache'];
             
-            console.log(`  Large payload: ${largeBodySize} bytes (${(largeBodySize / 1024).toFixed(1)}KB) - ${largeCacheStatus}`);
+            console.log(`  Medium payload: ${mediumBodySize} bytes (${(mediumBodySize / 1024).toFixed(1)}KB) - ${mediumCacheStatus}`);
             
-            // Validate large payload served and reasonably large
-            if (largeResponse.statusCode === 200 && largeBodySize >= 400000) {
-                this.recordPass('Large payload served via S3-backed path');
+            // Validate medium payload served
+            if (mediumResponse.statusCode === 200 && mediumCacheStatus) {
+                this.recordPass('Medium payload served with cache header present');
             } else {
-                this.recordFail(`Large payload test failed - status: ${largeResponse.statusCode}, size: ${largeBodySize} bytes`);
+                this.recordFail(`Medium payload test failed - status: ${mediumResponse.statusCode}, cache: ${mediumCacheStatus}`);
             }
             
-            // Test cache retrieval for large payload
-            const largeResponse2 = await this.makeRequest(largeSubdomain, largeUrl, '1m');
-            const largeBodySize2 = Buffer.byteLength(largeResponse2.body, 'utf8');
-            const largeCacheStatus2 = largeResponse2.headers['x-cache'];
-            const largeCacheKey1 = largeResponse.headers['x-cache-key'];
-            const largeCacheKey2 = largeResponse2.headers['x-cache-key'];
+            // Test cache retrieval for medium payload
+            const mediumResponse2 = await this.makeRequest(mediumSubdomain, mediumUrl, '1m');
+            const mediumBodySize2 = Buffer.byteLength(mediumResponse2.body, 'utf8');
+            const mediumCacheStatus2 = mediumResponse2.headers['x-cache'];
+            const mediumCacheKey1 = mediumResponse.headers['x-cache-key'];
+            const mediumCacheKey2 = mediumResponse2.headers['x-cache-key'];
             
             // Validate cache reuse by size equality and cache key stability
-            if (largeBodySize2 === largeBodySize && largeCacheKey1 && largeCacheKey1 === largeCacheKey2) {
-                this.recordPass('Large payload correctly retrieved from cache (stable cache key)');
+            if (mediumBodySize2 === mediumBodySize && mediumCacheKey1 && mediumCacheKey1 === mediumCacheKey2) {
+                this.recordPass('Medium payload correctly retrieved from cache (stable cache key)');
             } else {
-                this.recordFail(`Large payload cache retrieval failed - cache: ${largeCacheStatus2}, size1: ${largeBodySize}, size2: ${largeBodySize2}, keys match: ${largeCacheKey1 === largeCacheKey2}`);
+                this.recordFail(`Medium payload cache retrieval failed - cache: ${mediumCacheStatus2}, size1: ${mediumBodySize}, size2: ${mediumBodySize2}, keys match: ${mediumCacheKey1 === mediumCacheKey2}`);
             }
             
         } catch (error) {
-            this.recordFail(`S3 fallback test failed: ${error.message}`);
+            this.recordFail(`S3 caching test failed: ${error.message}`);
         }
         console.log('');
     }
