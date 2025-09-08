@@ -68,7 +68,7 @@ cd infra
 ### Testing
 ```bash
 # Run comprehensive test suite
-node test-production.js
+node tests/test-production.js
 
 # Individual test categories
 npm run test:quick      # Quick functionality tests
@@ -99,7 +99,7 @@ npm run test:local      # Local development server
 
 ## Testing Instructions
 
-- **Always run** `node test-production.js` after code changes
+- **Always run** `node tests/test-production.js` after code changes
 - **Test coverage includes**: Subdomain isolation, cache behavior, TTL functionality, error handling
 - **Cache hit/miss patterns**: First request = MISS, second = HIT, after TTL expiry = MISS
 - **S3 fallback**: Large payloads (>1MB) use S3-backed caching
@@ -138,8 +138,8 @@ npm run test:local      # Local development server
 
 ## File Organization
 
-- **Root level**: Main application code (`index.js`, `test-production.js`)
-- **`test-production.js`**: Comprehensive test suite (all testing in one file)
+- **Root level**: Main application code (`index.js`)
+- **`tests/test-production.js`**: Comprehensive test suite (all testing in one file)
 - **`infra/`**: Terraform infrastructure (two-phase)
 - **`deploy-code.sh`**: Lambda code deployment script
 

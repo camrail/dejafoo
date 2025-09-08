@@ -27,7 +27,8 @@ dejafoo/
 ├── index.js              # Lambda function handler
 ├── package.json          # Node.js dependencies
 ├── deploy-code.sh        # Lambda code deployment script
-├── test-production.js    # Comprehensive production test suite
+├── tests/                # Test files
+│   └── test-production.js # Comprehensive production test suite
 ├── infra/                # Terraform infrastructure
 │   ├── phase1.sh        # Phase 1 deployment script
 │   ├── phase2.sh        # Phase 2 deployment script
@@ -93,7 +94,7 @@ cd infra
 
 ```bash
 # Run comprehensive production test suite
-node test-production.js
+node tests/test-production.js
 
 # Manual testing
 curl "https://api.dejafoo.io?url=https://jsonplaceholder.typicode.com/todos/1&ttl=30s"
@@ -110,7 +111,7 @@ The comprehensive test suite validates all aspects of the proxy service:
 
 ```bash
 # Run the full production test suite
-node test-production.js
+node tests/test-production.js
 ```
 
 **Test Coverage:**
@@ -143,7 +144,7 @@ The comprehensive test suite includes local development testing:
 
 ```bash
 # Run the full test suite (includes local testing)
-node test-production.js
+node tests/test-production.js
 ```
 
 ## 🚀 Deployment Guide
@@ -184,7 +185,7 @@ cd ..
 ./deploy-code.sh               # Deploy updated Lambda code
 
 # 3. Test Changes
-node test-production.js         # Validate deployment
+node tests/test-production.js   # Validate deployment
 ```
 
 ### Infrastructure Deployment Details

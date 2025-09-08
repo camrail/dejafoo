@@ -85,7 +85,7 @@ Dejafoo uses a **two-phase deployment strategy**:
 
 1. **Run comprehensive tests:**
    ```bash
-   node test-production.js
+   node tests/test-production.js
    ```
 
 2. **Test with custom domain:**
@@ -95,7 +95,7 @@ Dejafoo uses a **two-phase deployment strategy**:
 
 3. **Test local development:**
    ```bash
-   node test-production.js
+   node tests/test-production.js
    ```
 
 ## Ongoing Deployments
@@ -104,7 +104,7 @@ Dejafoo uses a **two-phase deployment strategy**:
 ```bash
 # After making code changes
 ./deploy-code.sh
-node test-production.js
+node tests/test-production.js
 ```
 
 ### Infrastructure Updates (Rare)
@@ -168,7 +168,7 @@ curl -v "https://your-api-id.execute-api.region.amazonaws.com/prod/get"
 aws logs get-log-events --log-group-name "/aws/lambda/dejafoo-proxy-prod" --start-time $(date -d '1 hour ago' +%s)000
 
 # Test local development
-node test-production.js
+node tests/test-production.js
 ```
 
 ## Cleanup
