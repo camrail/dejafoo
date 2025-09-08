@@ -9,26 +9,27 @@ echo "🚀 Deploying Dejafoo JavaScript Lambda..."
 
 # Check if function exists
 FUNCTION_NAME="dejafoo-proxy-prod"
-if aws lambda get-function --function-name $FUNCTION_NAME >/dev/null 2>&1; then
+if aws lambda get-function --function-name $FUNCTION_NAME --profile dejafoo >/dev/null 2>&1; then
     echo "✅ Lambda function exists, updating code..."
     
     # Create deployment package
     echo "📦 Creating deployment package..."
-    zip -r dejafoo-lambda.zip index.js package.json node_modules/
+    zip -r dejafoo-lambda.zip src/index.js package.json node_modules/
     
     # Update function code
     echo "🔄 Updating Lambda function code..."
     aws lambda update-function-code \
         --function-name $FUNCTION_NAME \
-        --zip-file fileb://dejafoo-lambda.zip
+        --zip-file fileb://dejafoo-lambda.zip \
+        --profile dejafoo
     
     echo "⏳ Waiting for function update to complete..."
-    aws lambda wait function-updated --function-name $FUNCTION_NAME
+    aws lambda wait function-updated --function-name $FUNCTION_NAME --profile dejafoo
     
     echo "✅ Deployment completed successfully!"
     
     # Get function URL
-    FUNCTION_URL=$(aws lambda get-function-url-config --function-name $FUNCTION_NAME --query 'FunctionUrl' --output text 2>/dev/null || echo "No function URL configured")
+    FUNCTION_URL=$(aws lambda get-function-url-config --function-name $FUNCTION_NAME --query 'FunctionUrl' --output text --profile dejafoo 2>/dev/null || echo "No function URL configured")
     echo "🌐 Function URL: $FUNCTION_URL"
     
     # Clean up

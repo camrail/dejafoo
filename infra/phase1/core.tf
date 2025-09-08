@@ -62,7 +62,6 @@ module "lambda" {
   tags         = local.common_tags
   
   s3_bucket_name      = module.s3.bucket_name
-  lambda_zip_path     = "dejafoo-lambda.zip"
 }
 
 # API Gateway (without custom domain)

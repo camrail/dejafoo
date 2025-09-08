@@ -24,7 +24,8 @@ Internet → Route53 → API Gateway (Regional) → Lambda Function → Upstream
 
 ```
 dejafoo/
-├── index.js              # Lambda function handler
+├── src/                  # Source code
+│   └── index.js         # Lambda function handler
 ├── package.json          # Node.js dependencies
 ├── deploy-code.sh        # Lambda code deployment script
 ├── tests/                # Test files
@@ -204,7 +205,7 @@ node tests/test-production.js   # Validate deployment
 ### Code Deployment Details
 
 **`./deploy-code.sh`:**
-- Packages `index.js`, `package.json`, and `node_modules`
+- Packages `src/index.js`, `package.json`, and `node_modules`
 - Updates existing Lambda function code
 - Preserves all infrastructure and environment variables
 - **Requires**: Infrastructure already deployed
@@ -234,7 +235,7 @@ curl -H "X-Upstream-URL: https://api.example.com" "https://api.yourdomain.com/da
 
 ### Modifying Cache Behavior
 
-Edit the cache logic in `index.js`:
+Edit the cache logic in `src/index.js`:
 
 ```javascript
 // Cache TTL configuration

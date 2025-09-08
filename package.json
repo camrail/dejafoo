@@ -2,14 +2,14 @@
   "name": "dejafoo",
   "version": "1.0.0",
   "description": "High-performance HTTP proxy service with intelligent caching built on AWS Lambda",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
     "start": "node tests/test-production.js",
     "deploy": "./deploy-code.sh",
     "deploy:code": "./deploy-code.sh",
     "deploy:infra": "cd infra && ./phase1.sh && echo 'Update nameservers, then run: ./phase2.sh'",
     "test": "node tests/test-production.js",
-    "build": "zip -r dejafoo-lambda.zip index.js package.json node_modules/",
+    "build": "zip -r dejafoo-lambda.zip src/index.js package.json node_modules/",
     "clean": "rm -f dejafoo-lambda.zip"
   },
   "keywords": [

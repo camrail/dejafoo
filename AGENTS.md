@@ -138,7 +138,8 @@ npm run test:local      # Local development server
 
 ## File Organization
 
-- **Root level**: Main application code (`index.js`)
+- **Root level**: Configuration and deployment files
+- **`src/`**: Main application code (`src/index.js`)
 - **`tests/test-production.js`**: Comprehensive test suite (all testing in one file)
 - **`infra/`**: Terraform infrastructure (two-phase)
 - **`deploy-code.sh`**: Lambda code deployment script
