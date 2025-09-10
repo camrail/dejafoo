@@ -63,24 +63,34 @@ Dejafoo lets you cache expensive API responses and share them between environmen
 
 ### Example: Apollo API Integration
 
-```bash
+```python
+import requests
+
 # Development: Search for companies (uses 1 API credit)
-curl -X POST "https://dev123.dejafoo.io?url=https://api.apollo.io/v1/mixed_companies/search&ttl=24h" \
-  -H "Content-Type: application/json" \
-  -d '{"q_organization_domains": "apollo.io", "page": 1}'
+response = requests.post(
+    "https://shared123.dejafoo.io?url=https://api.apollo.io/v1/mixed_companies/search&ttl=24h",
+    headers={"Content-Type": "application/json"},
+    json={"q_organization_domains": "apollo.io", "page": 1}
+)
 
-# Staging: Same search, no additional API cost
-curl -X POST "https://staging456.dejafoo.io?url=https://api.apollo.io/v1/mixed_companies/search&ttl=24h" \
-  -H "Content-Type: application/json" \
-  -d '{"q_organization_domains": "apollo.io", "page": 1}'
+# Staging: Same search, same subdomain = cache hit, no additional API cost
+response = requests.post(
+    "https://shared123.dejafoo.io?url=https://api.apollo.io/v1/mixed_companies/search&ttl=24h",
+    headers={"Content-Type": "application/json"},
+    json={"q_organization_domains": "apollo.io", "page": 1}
+)
 
-# Production: Same search, no additional API cost
-curl -X POST "https://prod789.dejafoo.io?url=https://api.apollo.io/v1/mixed_companies/search&ttl=24h" \
-  -H "Content-Type: application/json" \
-  -d '{"q_organization_domains": "apollo.io", "page": 1}'
+# Production: Same search, same subdomain = cache hit, no additional API cost
+response = requests.post(
+    "https://shared123.dejafoo.io?url=https://api.apollo.io/v1/mixed_companies/search&ttl=24h",
+    headers={"Content-Type": "application/json"},
+    json={"q_organization_domains": "apollo.io", "page": 1}
+)
 ```
 
 **Result**: 1 API call, 3 environments served. Save 66% on API costs!
+
+**Note**: All environments use the same subdomain (`shared123`) to share cached data. Different subdomains create separate cache stores for isolation when needed.
 
 ### Key Features
 
