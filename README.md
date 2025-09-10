@@ -4,6 +4,42 @@ A high-performance API proxy service built with AWS Lambda to cache expensive AP
 
 📚 **[View Full Documentation](https://camrail.github.io/dejafoo/)** | 🚀 **[Quick Start](https://camrail.github.io/dejafoo/getting-started/quick-start/)**
 
+## Why Dejafoo Exists
+
+### The Problem: Expensive API Credits Burn Too Fast
+
+When building features that depend on expensive APIs (like Apollo, Coresignal, or other services with limited monthly requests), you quickly burn through your credits during development. Running the same API calls in development, staging, and production means **paying 3x for the same data**.
+
+### The Solution: Share API Data Across Environments
+
+Dejafoo lets you cache expensive API responses and share them between environments using simple subdomain-based isolation. One API call in development can serve data to production, staging, and other environments without additional API costs.
+
+### Real-World Use Cases
+
+- **Cost Optimization**: Share expensive API data between dev/staging/prod environments
+- **Rate Limit Management**: Avoid hitting API rate limits during development and testing
+- **Performance**: Get instant responses for repeated API calls
+- **Reliability**: Continue development when upstream APIs are down or slow
+- **Team Collaboration**: Share expensive API data between team members
+- **CI/CD Optimization**: Cache API responses in build pipelines
+- **Testing Consistency**: Use the same data across different test runs
+- **Cross-Environment Sync**: Keep data consistent across all your environments
+
+### Example: Apollo API Integration
+
+```bash
+# Development: Fetch company data (uses 1 API credit)
+curl "https://dev123.dejafoo.io?url=https://api.apollo.io/v1/companies&ttl=24h"
+
+# Staging: Same data, no additional API cost
+curl "https://staging456.dejafoo.io?url=https://api.apollo.io/v1/companies&ttl=24h"
+
+# Production: Same data, no additional API cost
+curl "https://prod789.dejafoo.io?url=https://api.apollo.io/v1/companies&ttl=24h"
+```
+
+**Result**: 1 API call, 3 environments served. Save 66% on API costs!
+
 ## Features
 
 - **HTTP Proxy**: Forward requests to any upstream service, with repeat requests served from cache
