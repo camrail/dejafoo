@@ -136,6 +136,31 @@ response = requests.post(
 )
 ```
 
+## How Cache Keys Work
+
+Dejafoo generates cache keys using a SHA-256 hash of the following components:
+
+- **Subdomain** - Provides isolation between different applications/users
+- **HTTP Method** - GET, POST, PUT, DELETE, etc.
+- **Target URL** - The upstream API endpoint
+- **Query Parameters** - URL query string parameters
+- **Request Payload** - POST/PUT body content
+- **TTL** - Time-to-live setting
+
+**Important**: Headers are deliberately excluded from cache keys to:
+- Prevent authentication tokens from being stored in cache keys
+- Avoid cache misses due to frequently changing proxy headers
+- Keep cache keys stable and predictable
+
+**Authentication Separation**: Use different subdomains to separate cached data by user or API key:
+```python
+# User A's data
+response = requests.get("https://user-a-123.dejafoo.io?url=https://api.example.com/data&ttl=1h")
+
+# User B's data (separate cache)
+response = requests.get("https://user-b-456.dejafoo.io?url=https://api.example.com/data&ttl=1h")
+```
+
 ## Getting Started
 
 1. **[Quick Start](getting-started/quick-start.md)** - Get Dejafoo running in 5 minutes

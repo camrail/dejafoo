@@ -128,6 +128,77 @@ response = requests.post(
 )
 ```
 
+## Cache Key Generation
+
+Understanding how Dejafoo generates cache keys is crucial for effective caching.
+
+### Key Components
+
+Cache keys are generated using a SHA-256 hash of:
+
+1. **Subdomain** - Provides isolation between different applications/users
+2. **HTTP Method** - GET, POST, PUT, DELETE, etc.
+3. **Target URL** - The upstream API endpoint
+4. **Query Parameters** - URL query string parameters
+5. **Request Payload** - POST/PUT body content
+6. **TTL** - Time-to-live setting
+
+### Why Headers Are Excluded
+
+Headers are deliberately excluded from cache keys because:
+
+- **Security**: Prevents authentication tokens from being stored in cache keys
+- **Stability**: Avoids cache misses due to frequently changing proxy headers
+- **Predictability**: Keeps cache keys stable and consistent
+
+### Authentication Separation
+
+Use different subdomains to separate cached data by user or API key:
+
+```python
+import requests
+
+# User A's data (separate cache store)
+response = requests.get(
+    "https://user-a-123.dejafoo.io?url=https://api.example.com/data&ttl=1h",
+    headers={"Authorization": "Bearer user-a-token"}
+)
+
+# User B's data (different cache store)
+response = requests.get(
+    "https://user-b-456.dejafoo.io?url=https://api.example.com/data&ttl=1h",
+    headers={"Authorization": "Bearer user-b-token"}
+)
+```
+
+### Cache Key Examples
+
+```python
+# These will have the SAME cache key (same subdomain, method, URL, payload)
+response1 = requests.post(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h",
+    headers={"Authorization": "Bearer token1"},
+    json={"name": "John"}
+)
+
+response2 = requests.post(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h",
+    headers={"Authorization": "Bearer token2"},  # Different auth, same cache key
+    json={"name": "John"}
+)
+
+# These will have DIFFERENT cache keys (different subdomains)
+response3 = requests.post(
+    "https://app-a.dejafoo.io?url=https://api.example.com/users&ttl=1h",
+    json={"name": "John"}
+)
+
+response4 = requests.post(
+    "https://app-b.dejafoo.io?url=https://api.example.com/users&ttl=1h",
+    json={"name": "John"}
+)
+```
+
 ## Caching Strategies
 
 ### Cache-Aside Pattern

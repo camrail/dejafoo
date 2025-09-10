@@ -163,14 +163,21 @@ The `ttl` parameter accepts various time formats:
 ### Cache Key Generation
 
 Cache keys are generated using a SHA-256 hash of the following data:
-- Subdomain (for isolation)
-- HTTP method
-- Target URL
-- Query parameters
-- Request payload (if any)
-- TTL value
+- **Subdomain** (for isolation)
+- **HTTP Method** (GET, POST, PUT, DELETE, etc.)
+- **Target URL** (the upstream endpoint)
+- **Query Parameters** (URL query string)
+- **Request Payload** (POST/PUT body content)
+- **TTL** (time-to-live setting)
 
 The key is generated as: `SHA256(subdomain:method:url:queryParams:payload:ttl)`
+
+**Important**: Headers are deliberately excluded from cache keys to:
+- Prevent authentication tokens from being stored in cache keys
+- Avoid cache misses due to frequently changing proxy headers
+- Keep cache keys stable and predictable
+
+**Authentication Separation**: Use different subdomains to separate cached data by user or API key.
 
 This ensures:
 - **Unique keys** for different requests
