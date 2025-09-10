@@ -148,6 +148,7 @@ Dejafoo generates cache keys using a SHA-256 hash of the following components:
 - **TTL** - Time-to-live setting
 
 **Important**: Headers are deliberately excluded from cache keys to:
+
 - Prevent authentication tokens from being stored in cache keys
 - Avoid cache misses due to frequently changing proxy headers
 - Keep cache keys stable and predictable
