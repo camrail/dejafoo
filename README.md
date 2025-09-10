@@ -28,14 +28,20 @@ Dejafoo lets you cache expensive API responses and share them between environmen
 ### Example: Apollo API Integration
 
 ```bash
-# Development: Fetch company data (uses 1 API credit)
-curl "https://dev123.dejafoo.io?url=https://api.apollo.io/v1/companies&ttl=24h"
+# Development: Search for companies (uses 1 API credit)
+curl -X POST "https://dev123.dejafoo.io?url=https://api.apollo.io/v1/mixed_companies/search&ttl=24h" \
+  -H "Content-Type: application/json" \
+  -d '{"q_organization_domains": "apollo.io", "page": 1}'
 
-# Staging: Same data, no additional API cost
-curl "https://staging456.dejafoo.io?url=https://api.apollo.io/v1/companies&ttl=24h"
+# Staging: Same search, no additional API cost
+curl -X POST "https://staging456.dejafoo.io?url=https://api.apollo.io/v1/mixed_companies/search&ttl=24h" \
+  -H "Content-Type: application/json" \
+  -d '{"q_organization_domains": "apollo.io", "page": 1}'
 
-# Production: Same data, no additional API cost
-curl "https://prod789.dejafoo.io?url=https://api.apollo.io/v1/companies&ttl=24h"
+# Production: Same search, no additional API cost
+curl -X POST "https://prod789.dejafoo.io?url=https://api.apollo.io/v1/mixed_companies/search&ttl=24h" \
+  -H "Content-Type: application/json" \
+  -d '{"q_organization_domains": "apollo.io", "page": 1}'
 ```
 
 **Result**: 1 API call, 3 environments served. Save 66% on API costs!

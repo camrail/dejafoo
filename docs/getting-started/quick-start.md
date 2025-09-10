@@ -9,14 +9,18 @@ The fastest way to get started is using the free hosted version at `dejafoo.io`:
 ### Basic Usage
 
 ```bash
-# Cache an API response for 30 seconds
-curl "https://myapp123.dejafoo.io?url=https://jsonplaceholder.typicode.com/todos/1&ttl=30s"
+# Cache a POST request for 30 seconds
+curl -X POST "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=30s" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "John Doe", "email": "john@example.com"}'
 
-# Cache for 1 hour
+# Cache a GET request for 1 hour
 curl "https://myapp123.dejafoo.io?url=https://api.example.com/data&ttl=1h"
 
 # Use different subdomain for isolation
-curl "https://another456.dejafoo.io?url=https://api.example.com/users&ttl=7d"
+curl -X POST "https://another456.dejafoo.io?url=https://api.example.com/orders&ttl=7d" \
+  -H "Content-Type: application/json" \
+  -d '{"product_id": 123, "quantity": 2}'
 ```
 
 ### Parameters
