@@ -8,19 +8,27 @@ The fastest way to get started is using the free hosted version at `dejafoo.io`:
 
 ### Basic Usage
 
-```bash
+```python
+import requests
+
 # Cache a POST request for 30 seconds
-curl -X POST "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=30s" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "John Doe", "email": "john@example.com"}'
+response = requests.post(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=30s",
+    headers={"Content-Type": "application/json"},
+    json={"name": "John Doe", "email": "john@example.com"}
+)
 
 # Cache a GET request for 1 hour
-curl "https://myapp123.dejafoo.io?url=https://api.example.com/data&ttl=1h"
+response = requests.get(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/data&ttl=1h"
+)
 
 # Use different subdomain for isolation
-curl -X POST "https://another456.dejafoo.io?url=https://api.example.com/orders&ttl=7d" \
-  -H "Content-Type: application/json" \
-  -d '{"product_id": 123, "quantity": 2}'
+response = requests.post(
+    "https://another456.dejafoo.io?url=https://api.example.com/orders&ttl=7d",
+    headers={"Content-Type": "application/json"},
+    json={"product_id": 123, "quantity": 2}
+)
 ```
 
 ### Parameters
@@ -104,14 +112,20 @@ curl "https://otherapp456.dejafoo.io?url=https://api.example.com/data&ttl=1h"
 
 ### Different HTTP Methods
 
-```bash
+```python
+import requests
+
 # GET request
-curl "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h"
+response = requests.get(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h"
+)
 
 # POST request (different cache entry)
-curl -X POST "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "John"}'
+response = requests.post(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h",
+    headers={"Content-Type": "application/json"},
+    json={"name": "John"}
+)
 ```
 
 ## Next Steps

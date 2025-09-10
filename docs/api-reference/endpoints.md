@@ -101,36 +101,52 @@ curl "https://app2.dejafoo.io?url=https://api.example.com/users&ttl=1h"
 
 Standard GET requests for retrieving data:
 
-```bash
-curl "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h"
+```python
+import requests
+
+response = requests.get(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h"
+)
 ```
 
 ### POST Requests
 
 POST requests with request body:
 
-```bash
-curl -X POST "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "John Doe", "email": "john@example.com"}'
+```python
+import requests
+
+response = requests.post(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h",
+    headers={"Content-Type": "application/json"},
+    json={"name": "John Doe", "email": "john@example.com"}
+)
 ```
 
 ### PUT Requests
 
 PUT requests for updating resources:
 
-```bash
-curl -X PUT "https://myapp123.dejafoo.io?url=https://api.example.com/users/1&ttl=1h" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "John Updated", "email": "john.updated@example.com"}'
+```python
+import requests
+
+response = requests.put(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users/1&ttl=1h",
+    headers={"Content-Type": "application/json"},
+    json={"name": "John Updated", "email": "john.updated@example.com"}
+)
 ```
 
 ### DELETE Requests
 
 DELETE requests for removing resources:
 
-```bash
-curl -X DELETE "https://myapp123.dejafoo.io?url=https://api.example.com/users/1&ttl=1h"
+```python
+import requests
+
+response = requests.delete(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users/1&ttl=1h"
+)
 ```
 
 ## Request Headers
@@ -283,8 +299,12 @@ Access-Control-Allow-Headers: Content-Type, Authorization, X-Upstream-URL
 
 OPTIONS requests are handled automatically:
 
-```bash
-curl -X OPTIONS "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h"
+```python
+import requests
+
+response = requests.options(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h"
+)
 ```
 
 ## WebSocket Support
@@ -358,16 +378,24 @@ data = client.get('https://api.example.com/users', ttl='30m')
 
 ### cURL
 
-```bash
+```python
+import requests
+
 # Basic usage
-curl "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h"
+response = requests.get(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h"
+)
 
 # With custom headers
-curl -H "Authorization: Bearer token" \
-  "https://myapp123.dejafoo.io?url=https://api.example.com/protected&ttl=30m"
+response = requests.get(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/protected&ttl=30m",
+    headers={"Authorization": "Bearer token"}
+)
 
 # POST request
-curl -X POST "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "John Doe"}'
+response = requests.post(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h",
+    headers={"Content-Type": "application/json"},
+    json={"name": "John Doe"}
+)
 ```

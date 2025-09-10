@@ -118,16 +118,22 @@ graph LR
 
 ### Quick Example
 
-```bash
+```python
+import requests
+
 # Cache a POST request for 1 hour
-curl -X POST "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "John Doe", "email": "john@example.com"}'
+response = requests.post(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h",
+    headers={"Content-Type": "application/json"},
+    json={"name": "John Doe", "email": "john@example.com"}
+)
 
 # Use different subdomain for isolation
-curl -X POST "https://another456.dejafoo.io?url=https://api.example.com/orders&ttl=30m" \
-  -H "Content-Type: application/json" \
-  -d '{"product_id": 123, "quantity": 2}'
+response = requests.post(
+    "https://another456.dejafoo.io?url=https://api.example.com/orders&ttl=30m",
+    headers={"Content-Type": "application/json"},
+    json={"product_id": 123, "quantity": 2}
+)
 ```
 
 ## Getting Started

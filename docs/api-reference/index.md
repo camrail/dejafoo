@@ -105,28 +105,45 @@ Content-Type: application/json
 
 ### Basic GET Request
 
-```bash
-curl "https://myapp123.dejafoo.io?url=https://jsonplaceholder.typicode.com/todos/1&ttl=30s"
+```python
+import requests
+
+response = requests.get(
+    "https://myapp123.dejafoo.io?url=https://jsonplaceholder.typicode.com/todos/1&ttl=30s"
+)
 ```
 
 ### POST Request with Headers
 
-```bash
-curl -X POST "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h&method=POST" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "John Doe", "email": "john@example.com"}'
+```python
+import requests
+
+response = requests.post(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h&method=POST",
+    headers={"Content-Type": "application/json"},
+    json={"name": "John Doe", "email": "john@example.com"}
+)
 ```
 
 ### Custom Subdomain
 
-```bash
-curl "https://myapp123.dejafoo.io?url=https://api.example.com/data&ttl=7d"
+```python
+import requests
+
+response = requests.get(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/data&ttl=7d"
+)
 ```
 
 ### With Custom Headers
 
-```bash
-curl "https://myapp123.dejafoo.io?url=https://api.example.com/protected&ttl=30m&headers=%7B%22Authorization%22%3A%22Bearer%20token%22%7D"
+```python
+import requests
+
+response = requests.get(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/protected&ttl=30m",
+    headers={"Authorization": "Bearer token"}
+)
 ```
 
 ## TTL Format

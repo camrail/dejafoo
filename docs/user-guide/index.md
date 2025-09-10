@@ -34,14 +34,20 @@ curl "https://app2.dejafoo.io?url=https://api.example.com/users&ttl=1h"
 
 ### Different HTTP Methods
 
-```bash
+```python
+import requests
+
 # GET request
-curl "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h"
+response = requests.get(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h"
+)
 
 # POST request (different cache entry)
-curl -X POST "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "John"}'
+response = requests.post(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h",
+    headers={"Content-Type": "application/json"},
+    json={"name": "John"}
+)
 ```
 
 ## TTL (Time-to-Live) Configuration
@@ -100,27 +106,39 @@ curl "https://myapp123.dejafoo.io?url=https://api.example.com/protected&ttl=30m"
 
 ### Query Parameters
 
-```bash
+```python
+import requests
+
 # Cache API with query parameters
-curl "https://myapp123.dejafoo.io?url=https://api.example.com/users?page=1&limit=10&ttl=1h"
+response = requests.get(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users?page=1&limit=10&ttl=1h"
+)
 ```
 
 ### POST Requests with Body
 
-```bash
+```python
+import requests
+
 # Cache POST request with JSON body
-curl -X POST "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "John Doe", "email": "john@example.com"}'
+response = requests.post(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h",
+    headers={"Content-Type": "application/json"},
+    json={"name": "John Doe", "email": "john@example.com"}
+)
 ```
 
 ## Caching Strategies
 
 ### Cache-Aside Pattern
 
-```bash
+```python
+import requests
+
 # 1. Check cache first
-curl "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h"
+response = requests.get(
+    "https://myapp123.dejafoo.io?url=https://api.example.com/users&ttl=1h"
+)
 
 # 2. If cache miss, fetch from upstream
 # 3. Store in cache for future requests
