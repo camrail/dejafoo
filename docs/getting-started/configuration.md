@@ -8,10 +8,12 @@ The Lambda function uses these environment variables for configuration:
 
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
-| `S3_BUCKET_NAME` | S3 bucket for cache storage | - | Yes |
-| `UPSTREAM_BASE_URL` | Default upstream service URL | - | No |
-| `CACHE_TTL_SECONDS` | Default cache TTL in seconds | 3600 | No |
-| `NODE_ENV` | Node environment | production | No |
+| `S3_BUCKET_NAME` | S3 bucket for cache storage | `dejafoo-cache-prod` | No |
+| `UPSTREAM_BASE_URL` | Default upstream service URL | `https://httpbin.org` | No |
+| `CACHE_TTL_SECONDS` | Default cache TTL in seconds | `3600` | No |
+| `NODE_ENV` | Node environment | `production` | No |
+
+**Note**: These environment variables are set in the Terraform configuration and can be modified by editing the Lambda module.
 
 ## Terraform Configuration
 
@@ -24,42 +26,42 @@ Edit `infra/phase1/terraform.tfvars`:
 aws_region = "eu-west-3"        # Your preferred AWS region
 environment = "prod"            # Environment name (dev, staging, prod)
 
-# Domain Configuration
+# Domain Configuration  
 domain_name = "yourdomain.com"  # Your domain (optional)
-
-# Lambda Configuration
-lambda_timeout = 30             # Lambda timeout in seconds
-lambda_memory_size = 256        # Lambda memory in MB
-
-# Cache Configuration
-default_ttl_seconds = 3600      # Default cache TTL
-max_cache_size_mb = 1           # Max size before S3 fallback
 ```
 
 ### Phase 2 Variables
 
-Phase 2 variables are auto-generated from Phase 1, but you can customize:
+Phase 2 variables are auto-generated from Phase 1. No additional configuration is needed.
 
-```hcl
-# SSL Configuration
-ssl_certificate_validation_timeout = "10m"
+### Hardcoded Values
 
-# DNS Configuration
-dns_ttl = 300                   # DNS record TTL in seconds
-```
+The following values are **hardcoded** in the Terraform modules and cannot be configured:
+
+- **Lambda timeout**: 30 seconds
+- **Lambda memory**: 512 MB
+- **Cache TTL**: 3600 seconds (1 hour)
+- **CloudWatch log retention**: 14 days
+- **S3 bucket encryption**: Not implemented
+- **API Gateway throttling**: Not implemented
 
 ## Cache Configuration
 
 ### TTL Settings
 
-Configure default cache TTL in different ways:
+The cache TTL is **hardcoded** to 3600 seconds (1 hour) in the Lambda environment variables. To change this, you would need to:
+
+1. Edit `infra/phase1/modules/lambda/main.tf`
+2. Change the `CACHE_TTL_SECONDS` value in the environment variables
+3. Redeploy the infrastructure
 
 ```hcl
-# In terraform.tfvars
-default_ttl_seconds = 3600      # 1 hour default
-
-# In Lambda environment
-CACHE_TTL_SECONDS = 7200        # 2 hours default
+# In infra/phase1/modules/lambda/main.tf
+environment {
+  variables = {
+    CACHE_TTL_SECONDS = "7200"  # Change from 3600 to 7200
+  }
+}
 ```
 
 ### Cache Key Generation
@@ -74,21 +76,11 @@ Cache keys are automatically generated using a SHA-256 hash of:
 
 **Note**: Cache key generation is hardcoded and not configurable. Headers are deliberately excluded to prevent authentication tokens from being stored in cache keys and to avoid cache misses due to frequently changing proxy headers.
 
-### S3 Configuration
-
-```hcl
-# S3 bucket configuration
-s3_bucket_name = "dejafoo-cache-prod"
-s3_encryption = true
-s3_lifecycle_enabled = true
-s3_lifecycle_days = 30
-```
-
 ## Domain Configuration
 
 ### Custom Domain Setup
 
-1. **Set Domain Name**:
+1. **Set Domain Name** in `infra/phase1/terraform.tfvars`:
    ```hcl
    domain_name = "yourdomain.com"
    ```
@@ -112,232 +104,43 @@ s3_lifecycle_days = 30
 ### Subdomain Configuration
 
 Dejafoo automatically handles subdomains:
-- `api.yourdomain.com` - Main API endpoint
 - `*.yourdomain.com` - Wildcard subdomain support
 - Each subdomain gets isolated cache storage
+- No additional configuration needed
 
-## Security Configuration
+## Modifying Hardcoded Values
 
-### IAM Roles
-
-The deployment creates minimal IAM roles:
-
-```hcl
-# Lambda execution role
-lambda_execution_role = "dejafoo-lambda-role"
-
-# S3 access policy
-s3_policy = "dejafoo-s3-policy"
-
-# API Gateway permissions
-apigateway_policy = "dejafoo-apigateway-policy"
-```
-
-### SSL/TLS Configuration
-
-```hcl
-# SSL certificate configuration
-ssl_certificate_provider = "acm"
-ssl_certificate_validation = "dns"
-ssl_certificate_validation_timeout = "10m"
-```
-
-### S3 Encryption
-
-```hcl
-# S3 server-side encryption
-s3_encryption_algorithm = "AES256"
-s3_encryption_key_management = "aws"
-```
-
-## Performance Configuration
+To change hardcoded values, you need to edit the Terraform modules directly:
 
 ### Lambda Configuration
 
-```hcl
-# Lambda performance settings
-lambda_timeout = 30             # Maximum execution time
-lambda_memory_size = 256        # Memory allocation
-lambda_reserved_concurrency = 100  # Reserved concurrency
-```
-
-### API Gateway Configuration
+Edit `infra/phase1/modules/lambda/main.tf`:
 
 ```hcl
-# API Gateway settings
-apigateway_type = "REGIONAL"    # Regional endpoints
-apigateway_throttle_burst = 5000
-apigateway_throttle_rate = 2000
+resource "aws_lambda_function" "dejafoo_proxy" {
+  # ... other settings ...
+  
+  timeout = 30        # Change this value
+  memory_size = 512   # Change this value
+  
+  environment {
+    variables = {
+      CACHE_TTL_SECONDS = "3600"  # Change this value
+      # ... other variables ...
+    }
+  }
+}
 ```
 
-### S3 Performance
+### CloudWatch Log Retention
+
+Edit `infra/phase1/modules/lambda/main.tf`:
 
 ```hcl
-# S3 performance settings
-s3_transfer_acceleration = false
-s3_intelligent_tiering = true
-```
-
-## Monitoring Configuration
-
-### CloudWatch Logs
-
-```hcl
-# CloudWatch configuration
-cloudwatch_log_retention = 14   # Days to retain logs
-cloudwatch_log_level = "INFO"
-```
-
-### Metrics Configuration
-
-```hcl
-# Custom metrics
-enable_custom_metrics = true
-metrics_namespace = "Dejafoo"
-```
-
-## Regional Configuration
-
-### Supported AWS Regions
-
-- **eu-west-3** (Paris) - Default
-- **us-east-1** (N. Virginia)
-- **us-west-2** (Oregon)
-- **ap-southeast-1** (Singapore)
-
-### Regional Endpoints
-
-This deployment uses **regional API Gateway endpoints**:
-
-- **No CloudFront**: Requests go directly to your specified region
-- **Simplified Caching**: Your custom S3-based caching works without CloudFront interference
-- **Lower Latency**: For users in your region, requests are faster
-- **Simpler Architecture**: Fewer moving parts, easier to debug
-
-## Environment-Specific Configuration
-
-### Development Environment
-
-```hcl
-# Development settings
-environment = "dev"
-lambda_memory_size = 128
-default_ttl_seconds = 300
-s3_lifecycle_days = 7
-```
-
-### Staging Environment
-
-```hcl
-# Staging settings
-environment = "staging"
-lambda_memory_size = 256
-default_ttl_seconds = 1800
-s3_lifecycle_days = 14
-```
-
-### Production Environment
-
-```hcl
-# Production settings
-environment = "prod"
-lambda_memory_size = 512
-default_ttl_seconds = 3600
-s3_lifecycle_days = 30
-```
-
-## Custom Upstream Configuration
-
-### Default Upstream Service
-
-```hcl
-# Set default upstream service
-upstream_base_url = "https://api.example.com"
-```
-
-### Dynamic Upstream Selection
-
-You can override the upstream service using headers:
-
-```bash
-# Use custom upstream service
-curl -H "X-Upstream-URL: https://api.other.com" \
-  "https://myapp123.dejafoo.io?url=/users&ttl=1h"
-```
-
-## Cache Behavior Configuration
-
-### Cache Invalidation
-
-```hcl
-# Cache invalidation settings
-cache_invalidation_enabled = true
-cache_invalidation_ttl = 3600
-```
-
-### Large File Handling
-
-```hcl
-# Large file configuration
-max_cache_size_mb = 1           # Max size before S3 fallback
-s3_fallback_enabled = true
-```
-
-## Troubleshooting Configuration
-
-### Debug Mode
-
-```hcl
-# Enable debug logging
-debug_mode = true
-log_level = "DEBUG"
-```
-
-### Health Check Configuration
-
-```hcl
-# Health check settings
-health_check_enabled = true
-health_check_path = "/health"
-health_check_interval = 30
-```
-
-## Configuration Examples
-
-### Basic Configuration
-
-```hcl
-# Basic production configuration
-aws_region = "eu-west-3"
-environment = "prod"
-domain_name = "api.yourdomain.com"
-lambda_memory_size = 256
-default_ttl_seconds = 3600
-```
-
-### High-Performance Configuration
-
-```hcl
-# High-performance configuration
-aws_region = "us-east-1"
-environment = "prod"
-domain_name = "api.yourdomain.com"
-lambda_memory_size = 1024
-lambda_timeout = 60
-default_ttl_seconds = 7200
-s3_transfer_acceleration = true
-```
-
-### Development Configuration
-
-```hcl
-# Development configuration
-aws_region = "eu-west-3"
-environment = "dev"
-domain_name = "dev-api.yourdomain.com"
-lambda_memory_size = 128
-default_ttl_seconds = 300
-debug_mode = true
+resource "aws_cloudwatch_log_group" "lambda_logs" {
+  name              = "/aws/lambda/${aws_lambda_function.dejafoo_proxy.function_name}"
+  retention_in_days = 14  # Change this value
+}
 ```
 
 ## Configuration Validation
@@ -358,11 +161,4 @@ terraform validate
 ```bash
 # Test configuration
 node tests/test-production.js
-```
-
-### Health Check
-
-```bash
-# Check configuration health
-curl "https://api.yourdomain.com/health"
 ```
