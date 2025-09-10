@@ -1,0 +1,29 @@
+{
+  "name": "dejafoo-docs",
+  "version": "1.0.0",
+  "description": "Dejafoo documentation built with MkDocs",
+  "scripts": {
+    "serve": "mkdocs serve",
+    "build": "mkdocs build",
+    "deploy": "mkdocs gh-deploy",
+    "install": "pip install -r requirements.txt"
+  },
+  "keywords": [
+    "dejafoo",
+    "documentation",
+    "mkdocs",
+    "api",
+    "proxy",
+    "caching"
+  ],
+  "author": "Dejafoo Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dejafoo/dejafoo.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dejafoo/dejafoo/issues"
+  },
+  "homepage": "https://dejafoo.io/docs"
+}

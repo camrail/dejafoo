@@ -1,18 +1,26 @@
-# Dejafoo - JavaScript Proxy Service
+# Dejafoo - Effortless Cross Environment API Cache
 
-A high-performance HTTP proxy service built with AWS Lambda, featuring intelligent caching and custom domain support.
+A high-performance API proxy service built with AWS Lambda to cache expensive API endpoints and share between environments
 
-## 🚀 Features
+📚 **[View Full Documentation](https://camrail.github.io/dejafoo/)** | 🚀 **[Quick Start](https://camrail.github.io/dejafoo/getting-started/quick-start/)**
 
-- **HTTP Proxy**: Forward requests to any upstream service
-- **Intelligent Caching**: S3-based caching with configurable TTL
+## Features
+
+- **HTTP Proxy**: Forward requests to any upstream service, with repeat requests served from cache
+- **Intelligent Caching**: S3-based caching with configurable TTL and any-random-string to seperate your stores
 - **Custom Domain Support**: API Gateway with Route53 integration
 - **SSL/TLS**: Automatic SSL certificate management
-- **Regional Endpoints**: Direct regional API Gateway (no CloudFront interference)
+- **Regional Endpoints**: Direct regional API Gateway
 - **High Performance**: Serverless architecture with sub-second response times
-- **Easy Deployment**: One-command infrastructure and code deployment
+- **Easy Deployment**: One-command infrastructure and code deployment, or use the free dejafoo.io hosted version
 
-## 🏗️ Architecture
+## Usage
+
+- Direct any API request (get, post, patch etc) to `{{ any-random-string }}.dejafoo.io?url={{ api-to-cache.com/endpoint }}&ttl={{ 7d }}`
+- Response is cached up until the supplied ttl (`7s`, `7m`, `7d` for 7 seconds, 7 minutes and 7 days respectively)
+- Cache is segregated by any-random-string + url + method
+
+## Architecture
 
 ```
 Internet → Route53 → API Gateway (Regional) → Lambda Function → Upstream Service
@@ -20,7 +28,7 @@ Internet → Route53 → API Gateway (Regional) → Lambda Function → Upstream
               S3 (cache storage)
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 dejafoo/
@@ -52,7 +60,7 @@ dejafoo/
 └── README.md
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -66,7 +74,7 @@ dejafoo/
 Edit `infra/phase1/terraform.tfvars`:
 
 ```hcl
-aws_region = "eu-west-3"       # Your preferred AWS region
+aws_region = "eu-west-3"        # Your preferred AWS region
 environment = "prod"            # Environment name
 domain_name = "dejafoo.io"      # Your domain (optional)
 ```
@@ -116,28 +124,18 @@ node tests/test-production.js
 ```
 
 **Test Coverage:**
-- ✅ **Basic Functionality**: HTTP proxy and response handling
-- ✅ **Subdomain Isolation**: Ensures different subdomains don't leak data
-- ✅ **Cache Behavior**: Hit/miss patterns with TTL validation
-- ✅ **Header-based Caching**: Different headers create separate cache entries
-- ✅ **Method Support**: GET, POST, PUT, DELETE methods
-- ✅ **Data Leakage Prevention**: Sensitive data isolation between subdomains
-- ✅ **Error Handling**: Graceful handling of invalid URLs and errors
-- ✅ **Concurrent Requests**: Multiple simultaneous request handling
-- ✅ **TTL Functionality**: Cache expiration and refresh behavior
-- ✅ **S3 Integration**: Large payload handling and cache storage
+- **Basic Functionality**: HTTP proxy and response handling
+- **Subdomain Isolation**: Ensures different subdomains don't leak data
+- **Cache Behavior**: Hit/miss patterns with TTL validation
+- **Header-based Caching**: Different headers create separate cache entries
+- **Method Support**: GET, POST, PUT, DELETE methods
+- **Data Leakage Prevention**: Sensitive data isolation between subdomains
+- **Error Handling**: Graceful handling of invalid URLs and errors
+- **Concurrent Requests**: Multiple simultaneous request handling
+- **TTL Functionality**: Cache expiration and refresh behavior
+- **S3 Integration**: Large payload handling and cache storage
 
-### Test Results Example
 
-```
-📊 PRODUCTION BATTLE TEST SUMMARY
-============================================================
-Total Tests: 36
-✅ Passed: 34
-❌ Failed: 2
-Success Rate: 94.4%
-============================================================
-```
 
 ### Local Development
 
@@ -324,6 +322,14 @@ node local-test.js
 4. Test locally with `node local-test.js`
 5. Submit a pull request
 
+## 📚 Documentation
+
+- **[Complete Documentation](https://camrail.github.io/dejafoo/)** - Full documentation with guides, API reference, and examples
+- **[Quick Start Guide](https://camrail.github.io/dejafoo/getting-started/quick-start/)** - Get up and running in 5 minutes
+- **[API Reference](https://camrail.github.io/dejafoo/api-reference/)** - Complete API documentation
+- **[Deployment Guide](https://camrail.github.io/dejafoo/deployment/)** - Infrastructure and code deployment
+- **[User Guide](https://camrail.github.io/dejafoo/user-guide/)** - Usage patterns and best practices
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -336,9 +342,9 @@ This project includes an [AGENTS.md](AGENTS.md) file with detailed architecture 
 
 For issues and questions:
 
-1. Check the troubleshooting section
+1. **[Check the documentation](https://camrail.github.io/dejafoo/)** - Comprehensive guides and troubleshooting
 2. Review CloudWatch logs
-3. Open an issue on GitHub
+3. Open an issue on [GitHub](https://github.com/camrail/dejafoo/issues)
 
 ---
 

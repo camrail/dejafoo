@@ -1,0 +1,184 @@
+site_name: Dejafoo Documentation
+site_description: High-performance HTTP proxy service with intelligent S3-based caching
+site_author: Dejafoo Team
+site_url: https://dejafoo.io/docs
+
+repo_name: camrail/dejafoo
+repo_url: https://github.com/camrail/dejafoo
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  palette:
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+
+  features:
+    - announce.dismiss
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    - content.code.select
+    - content.tabs.link
+    - content.tooltips
+    - header.autohide
+    - navigation.expand
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.prune
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+    - toc.integrate
+
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
+
+  font:
+    text: Inter
+    code: JetBrains Mono
+
+plugins:
+  - search:
+      lang: en
+  - mermaid2:
+      arguments:
+        theme: base
+        themeVariables:
+          primaryColor: '#ff6b6b'
+          primaryTextColor: '#fff'
+          primaryBorderColor: '#7C0000'
+          lineColor: '#F8B229'
+          secondaryColor: '#006100'
+          tertiaryColor: '#fff'
+  - minify:
+      minify_html: true
+  - redirects:
+      redirect_maps:
+        'index.md': 'getting-started/'
+        'api/': 'api-reference/'
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      normalize_issue_symbols: true
+      repo_url_shorthand: true
+      user: dejafoo
+      repo: dejafoo
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      combine_header_slug: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - getting-started/index.md
+    - getting-started/quick-start.md
+    - getting-started/installation.md
+    - getting-started/configuration.md
+  - User Guide:
+    - user-guide/index.md
+    - user-guide/usage.md
+    - user-guide/caching.md
+    - user-guide/custom-domains.md
+    - user-guide/monitoring.md
+  - API Reference:
+    - api-reference/index.md
+    - api-reference/endpoints.md
+    - api-reference/parameters.md
+    - api-reference/headers.md
+    - api-reference/response-format.md
+  - Deployment:
+    - deployment/index.md
+    - deployment/infrastructure.md
+    - deployment/code-deployment.md
+    - deployment/troubleshooting.md
+  - Development:
+    - development/index.md
+    - development/architecture.md
+    - development/testing.md
+    - development/contributing.md
+  - Reference:
+    - reference/index.md
+    - reference/terraform-modules.md
+    - reference/environment-variables.md
+    - reference/aws-resources.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/dejafoo/dejafoo
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/dejafoo
+  version:
+    provider: mike
