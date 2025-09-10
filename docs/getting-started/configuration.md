@@ -62,14 +62,17 @@ default_ttl_seconds = 3600      # 1 hour default
 CACHE_TTL_SECONDS = 7200        # 2 hours default
 ```
 
-### Cache Key Configuration
+### Cache Key Generation
 
-Cache keys are generated using:
-- Subdomain (for isolation)
-- URL (the upstream endpoint)
-- HTTP method
-- Query parameters
-- Headers (if provided)
+Cache keys are automatically generated using a SHA-256 hash of:
+- **Subdomain** (for isolation)
+- **HTTP Method** (GET, POST, PUT, DELETE, etc.)
+- **Target URL** (the upstream endpoint)
+- **Query Parameters** (URL query string)
+- **Request Payload** (POST/PUT body content)
+- **TTL** (time-to-live setting)
+
+**Note**: Cache key generation is hardcoded and not configurable. Headers are deliberately excluded to prevent authentication tokens from being stored in cache keys and to avoid cache misses due to frequently changing proxy headers.
 
 ### S3 Configuration
 
